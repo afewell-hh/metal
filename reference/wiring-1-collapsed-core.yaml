@@ -1,0 +1,246 @@
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-01--mclag-domain--s5248-02
+spec:
+  mclagDomain:
+    peerLinks:
+      - switch1:
+          port: s5248-01/E1/55/1
+        switch2:
+          port: s5248-02/E1/55/1
+      - switch1:
+          port: s5248-01/E1/55/2
+        switch2:
+          port: s5248-02/E1/55/2
+    sessionLinks:
+      - switch1:
+          port: s5248-01/E1/55/3
+        switch2:
+          port: s5248-02/E1/55/3
+      - switch1:
+          port: s5248-01/E1/55/4
+        switch2:
+          port: s5248-02/E1/55/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-03--mclag-domain--s5248-04
+spec:
+  mclagDomain:
+    peerLinks:
+      - switch1:
+          port: s5248-01/E1/55/1
+        switch2:
+          port: s5248-02/E1/55/1
+      - switch1:
+          port: s5248-03/E1/55/2
+        switch2:
+          port: s5248-04/E1/55/2
+    sessionLinks:
+      - switch1:
+          port: s5248-03/E1/55/3
+        switch2:
+          port: s5248-04/E1/55/3
+      - switch1:
+          port: s5248-03/E1/55/4
+        switch2:
+          port: s5248-04/E1/55/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-01--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: s5248-01/E1/17
+        switch2:
+          port: s5248-01/E1/18
+      - switch1:
+          port: s5248-01/E1/19
+        switch2:
+          port: s5248-01/E1/20
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-02--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: s5248-02/E1/17
+        switch2:
+          port: s5248-02/E1/18
+      - switch1:
+          port: s5248-02/E1/19
+        switch2:
+          port: s5248-02/E1/20
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-03--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: s5248-03/E1/17
+        switch2:
+          port: s5248-03/E1/18
+      - switch1:
+          port: s5248-03/E1/19
+        switch2:
+          port: s5248-03/E1/20
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-04--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: s5248-04/E1/17
+        switch2:
+          port: s5248-04/E1/18
+      - switch1:
+          port: s5248-04/E1/19
+        switch2:
+          port: s5248-04/E1/20
+##
+## Servers
+##
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-1
+spec:
+  description: MH s5248-01/E1 s5248-02/E1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-2
+spec:
+  description: MH s5248-01/E2 s5248-02/E2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-3
+spec:
+  description: SH LAG s5248-01/E3-4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-4
+spec:
+  description: SH s5248-02/E3
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-5
+spec:
+  description: SH LAG s5248-03/E0-1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-6
+spec:
+  description: SH s5248-03/E1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-1--mclag--s5248-01--s5248-02
+spec:
+  mclag:
+    links:
+      - server:
+          port: server-1/enp2s1
+        switch:
+          port: s5248-01/E1/2
+      - server:
+          port: server-1/enp2s2
+        switch:
+          port: s5248-02/E1/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-2--mclag--s5248-01--s5248-02
+spec:
+  mclag:
+    links:
+      - server:
+          port: server-2/enp2s1
+        switch:
+          port: s5248-01/E1/3
+      - server:
+          port: server-2/enp2s2
+        switch:
+          port: s5248-02/E1/3
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-3--bundled--s5248-01
+spec:
+  bundled:
+    links:
+      - server:
+          port: server-3/enp2s1
+        switch:
+          port: s5248-01/E1/4
+      - server:
+          port: server-3/enp2s2
+        switch:
+          port: s5248-01/E1/5
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-4--unbundled--s5248-02
+spec:
+  unbundled:
+    link:
+      server:
+        port: server-4/enp2s1
+      switch:
+        port: s5248-02/E1/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-5--bundled--s5248-03
+spec:
+  bundled:
+    links:
+      - server:
+          port: server-5/enp2s1
+        switch:
+          port: s5248-03/E1/1
+      - server:
+          port: server-5/enp2s2
+        switch:
+          port: s5248-03/E1/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-6--unbundled--s5248-04
+spec:
+  unbundled:
+    link:
+      server:
+        port: server-6/enp2s1
+      switch:
+        port: s5248-04/E1/2

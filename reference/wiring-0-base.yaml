@@ -1,0 +1,291 @@
+###
+### Basic entities: namespaces, racks, switches
+###
+
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: VLANNamespace
+metadata:
+  name: default
+spec:
+  ranges:
+    - from: 1000
+      to: 2999
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: IPv4Namespace
+metadata:
+  name: default
+spec:
+  subnets:
+    - 10.10.0.0/16
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: IPv4Namespace
+metadata:
+  name: ipns-2
+spec:
+  subnets:
+    - 10.11.0.0/16
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: mclag-1
+  namespace: default
+spec: {}
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.88.10:8801
+    power.hhfab.githedgehog.com/psu1: http://192.168.88.5/outlet/3
+    # link.hhfab.githedgehog.com/E1_1: pci@0000:81:00.0 # Used to be control node link
+    link.hhfab.githedgehog.com/E1_2: pci@0000:84:00.0
+    link.hhfab.githedgehog.com/E1_3: pci@0000:84:00.1
+    link.hhfab.githedgehog.com/E1_4: pci@0000:82:00.1
+    link.hhfab.githedgehog.com/E1_5: pci@0000:82:00.0
+    link.hhfab.githedgehog.com/E1_6: pci@0000:83:00.0
+  name: s5248-01
+spec:
+  boot:
+    serial: CN046MRJCES0085E0015
+  profile: dell-s5248f-on
+  role: server-leaf
+  description: leaf-1
+  portGroupSpeeds:
+    "1": 10G
+    "2": 10G
+  portBreakouts:
+    E1/55: 4x25G
+  redundancy:
+    group: mclag-1
+    type: mclag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.88.10:8802
+    power.hhfab.githedgehog.com/psu1: http://192.168.88.5/outlet/4
+    # link.hhfab.githedgehog.com/E1_1: pci@0000:81:00.1 # Used to be control node link
+    link.hhfab.githedgehog.com/E1_2: pci@0000:0d:00.1
+    link.hhfab.githedgehog.com/E1_3: pci@0000:0d:00.0
+    link.hhfab.githedgehog.com/E1_4: pci@0000:07:00.1
+    link.hhfab.githedgehog.com/E1_6: pci@0000:83:00.1
+  name: s5248-02
+spec:
+  boot:
+    serial: CN0NW42MCES0093P0025
+  profile: dell-s5248f-on
+  role: server-leaf
+  description: leaf-2
+  portGroupSpeeds:
+    "1": 10G
+    "2": 10G
+  portBreakouts:
+    E1/55: 4x25G
+  redundancy:
+    group: mclag-1
+    type: mclag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: eslag-1
+  namespace: default
+spec: {}
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: border
+  namespace: default
+spec: {}
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.88.10:8803
+    power.hhfab.githedgehog.com/psu1: http://192.168.88.5/outlet/5
+    link.hhfab.githedgehog.com/E1_1: pci@0000:07:00.0
+    link.hhfab.githedgehog.com/E1_2: pci@0000:0c:00.1
+    link.hhfab.githedgehog.com/E1_3: pci@0000:0c:00.0
+    link.hhfab.githedgehog.com/E1_42: pci@0000:0a:00.1
+  name: s5248-03
+spec:
+  boot:
+    mac: 3C:2C:30:71:1B:00
+  profile: dell-s5248f-on
+  role: server-leaf
+  description: leaf-3
+  portGroupSpeeds:
+    "1": 10G
+    "2": 10G
+    "11": 10G
+  portBreakouts:
+    E1/55: 4x25G
+  groups:
+    - border
+  redundancy:
+    group: eslag-1
+    type: eslag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.88.10:8804
+    power.hhfab.githedgehog.com/psu1: http://192.168.88.5/outlet/6
+    link.hhfab.githedgehog.com/E1_2: pci@0000:05:00.1
+    link.hhfab.githedgehog.com/E1_3: pci@0000:05:00.0
+    link.hhfab.githedgehog.com/E1_40: pci@0000:0a:00.0
+  name: s5248-04
+spec:
+  boot:
+    mac: 8C:47:BE:A9:85:8F
+  profile: dell-s5248f-on
+  role: server-leaf
+  description: leaf-4
+  portGroupSpeeds:
+    "1": 10G
+    "2": 10G
+    "10": 10G
+  portBreakouts:
+    E1/55: 4x25G
+  groups:
+    - border
+  redundancy:
+    group: eslag-1
+    type: eslag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.88.10:8811
+    power.hhfab.githedgehog.com/psu1: http://192.168.88.5/outlet/1
+  name: s5232-01
+spec:
+  boot:
+    serial: CN0RC7V6CES0085G0001
+  profile: dell-s5232f-on
+  role: spine
+  description: spine-1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.88.10:8812
+    power.hhfab.githedgehog.com/psu1: http://192.168.88.5/outlet/2
+  name: s5232-02
+spec:
+  boot:
+    serial: TH0HM2C2CET0008700K1
+  profile: dell-s5232f-on
+  role: spine
+  description: spine-2
+###
+### External
+###
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: External
+metadata:
+  name: default--5835
+spec:
+  ipv4Namespace: default
+  inboundCommunity: 65102:5000
+  outboundCommunity: 50000:50001
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: External
+metadata:
+  name: ipns-2--5835
+spec:
+  ipv4Namespace: ipns-2
+  inboundCommunity: 65102:5000
+  outboundCommunity: 50000:50002
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-03--external--5835
+spec:
+  external:
+    link:
+      switch:
+        port: s5248-03/E1/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: s5248-04--external--5835
+spec:
+  external:
+    link:
+      switch:
+        port: s5248-04/E1/6
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: ExternalAttachment
+metadata:
+  name: s5248-03--default--5835
+spec:
+  external: default--5835
+  connection: s5248-03--external--5835
+  switch:
+    ip: 100.100.0.1/24
+  neighbor:
+    asn: 64102
+    ip: 100.100.0.6
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: ExternalAttachment
+metadata:
+  name: s5248-04--default--5835
+spec:
+  external: default--5835
+  connection: s5248-04--external--5835
+  switch:
+    vlan: 200
+    ip: 100.100.20.1/24
+  neighbor:
+    asn: 64102
+    ip: 100.100.20.6
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: ExternalAttachment
+metadata:
+  name: s5248-03--ipns-2--5835
+spec:
+  external: ipns-2--5835
+  connection: s5248-03--external--5835
+  switch:
+    vlan: 101
+    ip: 100.100.100.1/24
+  neighbor:
+    asn: 64102
+    ip: 100.100.100.6
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: ExternalAttachment
+metadata:
+  name: s5248-04--ipns-2--5835
+spec:
+  external: ipns-2--5835
+  connection: s5248-04--external--5835
+  switch:
+    vlan: 201
+    ip: 100.100.120.1/24
+  neighbor:
+    asn: 64102
+    ip: 100.100.120.6

@@ -1,0 +1,349 @@
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds3000-01--mclag-domain--ds3000-02
+spec:
+  mclagDomain:
+    peerLinks:
+      - switch1:
+          port: ds3000-01/E1/32/1
+        switch2:
+          port: ds3000-02/E1/32/1
+      - switch1:
+          port: ds3000-01/E1/32/2
+        switch2:
+          port: ds3000-02/E1/32/2
+    sessionLinks:
+      - switch1:
+          port: ds3000-01/E1/32/3
+        switch2:
+          port: ds3000-02/E1/32/3
+      - switch1:
+          port: ds3000-01/E1/32/4
+        switch2:
+          port: ds3000-02/E1/32/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-01--fabric--ds3000-01
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-01/E1/1
+        leaf:
+          port: ds3000-01/E1/28
+      - spine:
+          port: ds4000-01/E1/2
+        leaf:
+          port: ds3000-01/E1/29
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-01--fabric--ds3000-02
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-01/E1/3
+        leaf:
+          port: ds3000-02/E1/28
+      - spine:
+          port: ds4000-01/E1/4
+        leaf:
+          port: ds3000-02/E1/29
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-01--fabric--ds3000-03
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-01/E1/5
+        leaf:
+          port: ds3000-03/E1/28
+      - spine:
+          port: ds4000-01/E1/6
+        leaf:
+          port: ds3000-03/E1/29
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-01--fabric--sse-c4632-01
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-01/E1/7
+        leaf:
+          port: sse-c4632-01/E1/28
+      - spine:
+          port: ds4000-01/E1/8
+        leaf:
+          port: sse-c4632-01/E1/29
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-02--fabric--ds3000-01
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-02/E1/1
+        leaf:
+          port: ds3000-01/E1/30
+      - spine:
+          port: ds4000-02/E1/2
+        leaf:
+          port: ds3000-01/E1/31
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-02--fabric--ds3000-02
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-02/E1/3
+        leaf:
+          port: ds3000-02/E1/30
+      - spine:
+          port: ds4000-02/E1/4
+        leaf:
+          port: ds3000-02/E1/31
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-02--fabric--ds3000-03
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-02/E1/5
+        leaf:
+          port: ds3000-03/E1/30
+      - spine:
+          port: ds4000-02/E1/6
+        leaf:
+          port: ds3000-03/E1/31
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds4000-02--fabric--sse-c4632-01
+spec:
+  fabric:
+    links:
+      - spine:
+          port: ds4000-02/E1/7
+        leaf:
+          port: sse-c4632-01/E1/30
+      - spine:
+          port: ds4000-02/E1/8
+        leaf:
+          port: sse-c4632-01/E1/31
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds3000-01--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: ds3000-01/E1/17/1
+        switch2:
+          port: ds3000-01/E1/18/1
+      - switch1:
+          port: ds3000-01/E1/17/2
+        switch2:
+          port: ds3000-01/E1/18/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds3000-02--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: ds3000-02/E1/17/1
+        switch2:
+          port: ds3000-02/E1/18/1
+      - switch1:
+          port: ds3000-02/E1/17/2
+        switch2:
+          port: ds3000-02/E1/18/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds3000-03--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: ds3000-03/E1/17/1
+        switch2:
+          port: ds3000-03/E1/18/1
+      - switch1:
+          port: ds3000-03/E1/17/2
+        switch2:
+          port: ds3000-03/E1/18/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: sse-c4632-01--vpc-loopback
+spec:
+  vpcLoopback:
+    links:
+      - switch1:
+          port: sse-c4632-01/E1/5/1
+        switch2:
+          port: sse-c4632-01/E1/5/2
+      - switch1:
+          port: sse-c4632-01/E1/5/3
+        switch2:
+          port: sse-c4632-01/E1/5/4
+##
+## Servers
+##
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-1
+spec:
+  description: MCLAG ds3000-01/E1 ds3000-02/E1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-2
+spec:
+  description: MCLAG ds3000-01/E2 ds3000-02/E2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-3
+spec:
+  description: SH LAG ds3000-01/E3-4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-4
+spec:
+  description: SH ds3000-02/E3
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-5
+spec:
+  description: ESLAG ds3000-03/E1 sse-c4632-01/E1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Server
+metadata:
+  name: server-6
+spec:
+  description: SH ds3000-03/E2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-1--mclag--ds3000-01--ds3000-02
+spec:
+  mclag:
+    links:
+      - server:
+          port: server-1/enp2s1
+        switch:
+          port: ds3000-01/E1/1/2
+      - server:
+          port: server-1/enp2s2
+        switch:
+          port: ds3000-02/E1/1/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-2--mclag--ds3000-01--ds3000-02
+spec:
+  mclag:
+    links:
+      - server:
+          port: server-2/enp2s1
+        switch:
+          port: ds3000-01/E1/1/3
+      - server:
+          port: server-2/enp2s2
+        switch:
+          port: ds3000-02/E1/1/3
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-3--bundled--ds3000-01
+spec:
+  bundled:
+    links:
+      - server:
+          port: server-3/enp2s1
+        switch:
+          port: ds3000-01/E1/1/4
+      - server:
+          port: server-3/enp2s2
+        switch:
+          port: ds3000-01/E1/2/1
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-4--unbundled--ds3000-02
+spec:
+  unbundled:
+    link:
+      server:
+        port: server-4/enp2s1
+      switch:
+        port: ds3000-02/E1/1/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-5--eslag--ds3000-03--sse-c4632-01
+spec:
+  eslag:
+    links:
+      - server:
+          port: server-5/enp2s1
+        switch:
+          port: ds3000-03/E1/1/2
+      - server:
+          port: server-5/enp2s2
+        switch:
+          port: sse-c4632-01/E1/1/2
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: server-6--unbundled--ds3000-03
+spec:
+  unbundled:
+    link:
+      server:
+        port: server-6/enp2s1
+      switch:
+        port: ds3000-03/E1/1/3

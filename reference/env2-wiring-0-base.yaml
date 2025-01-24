@@ -1,0 +1,251 @@
+###
+### Basic entities: namespaces, racks, switches
+###
+
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: VLANNamespace
+metadata:
+  name: default
+spec:
+  ranges:
+    - from: 1000
+      to: 2999
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: IPv4Namespace
+metadata:
+  name: default
+spec:
+  subnets:
+    - 10.20.0.0/16
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: mclag-1
+  namespace: default
+spec: {}
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/3
+    # link.hhfab.githedgehog.com/M1: pci@0000:83:00.0 # Used to be control node link
+    # link.hhfab.githedgehog.com/E1_1_1: pci@0000:81:00.0 # Used to be control node link
+    link.hhfab.githedgehog.com/E1_1_2: pci@0000:84:00.0
+    link.hhfab.githedgehog.com/E1_1_3: pci@0000:84:00.1
+    link.hhfab.githedgehog.com/E1_1_4: pci@0000:82:00.1
+    link.hhfab.githedgehog.com/E1_2_1: pci@0000:82:00.0
+  name: ds3000-01
+spec:
+  boot:
+    serial: DX030F2B031A05UB200007
+  role: server-leaf
+  description: leaf-1
+  profile: celestica-ds3000
+  portBreakouts:
+    E1/1: 4x10G
+    E1/2: 4x10G
+    E1/17: 4x25G
+    E1/18: 4x25G
+    E1/32: 4x25G
+  redundancy:
+    group: mclag-1
+    type: mclag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8902
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/4
+    # link.hhfab.githedgehog.com/M1: pci@0000:83:00.1 # Used to be control node link
+    # link.hhfab.githedgehog.com/E1_1_1: pci@0000:81:00.1 # Used to be control node link
+    link.hhfab.githedgehog.com/E1_1_2: pci@0000:05:00.1
+    link.hhfab.githedgehog.com/E1_1_3: pci@0000:05:00.0
+    link.hhfab.githedgehog.com/E1_1_4: pci@0000:03:00.1
+  name: ds3000-02
+spec:
+  boot:
+    serial: DX030F2B043607UB200029
+  role: server-leaf
+  description: leaf-2
+  profile: celestica-ds3000
+  portBreakouts:
+    E1/1: 4x10G
+    E1/2: 4x10G
+    E1/17: 4x25G
+    E1/18: 4x25G
+    E1/32: 4x25G
+  redundancy:
+    group: mclag-1
+    type: mclag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: eslag-1
+  namespace: default
+spec: {}
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8903
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/5
+    # link.hhfab.githedgehog.com/M1: pci@0000:83:00.2 # Used to be control node link
+    link.hhfab.githedgehog.com/E1_1_2: pci@0000:03:00.0
+    link.hhfab.githedgehog.com/E1_1_3: pci@0000:04:00.1
+  name: ds3000-03
+spec:
+  boot:
+    serial: DX030F2B043607UB200027
+  role: server-leaf
+  description: leaf-3
+  profile: celestica-ds3000
+  portBreakouts:
+    E1/1: 4x10G
+    E1/17: 4x25G
+    E1/18: 4x25G
+  redundancy:
+    group: eslag-1
+    type: eslag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8904
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/6
+    # link.hhfab.githedgehog.com/M1: pci@0000:83:00.3 # Used to be control node link
+    link.hhfab.githedgehog.com/E1_1_2: pci@0000:04:00.0
+  name: sse-c4632-01
+spec:
+  boot:
+    serial: SSC46AN03020014
+  role: server-leaf
+  description: leaf-4
+  profile: celestica-ds3000
+  portBreakouts:
+    E1/1: 4x10G
+    E1/5: 4x25G
+  redundancy:
+    group: eslag-1
+    type: eslag
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8911
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/1
+    # link.hhfab.githedgehog.com/M1: pci@0000:01:00.1 # Used to be control node link
+  name: ds4000-01
+spec:
+  boot:
+    serial: R4009B2F062504LK200031
+  role: spine
+  description: spine-1
+  profile: celestica-ds4000
+  portBreakouts:
+    E1/1: 1x100G
+    E1/2: 1x100G
+    E1/3: 1x100G
+    E1/4: 1x100G
+    E1/5: 1x100G
+    E1/6: 1x100G
+    E1/7: 1x100G
+    E1/8: 1x100G
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8912
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/2
+    # link.hhfab.githedgehog.com/M1: pci@0000:01:00.2 # Used to be control node link
+  name: ds4000-02
+spec:
+  boot:
+    serial: R4009B2F062504LK200006
+  role: spine
+  description: spine-2
+  profile: celestica-ds4000
+  portBreakouts:
+    E1/1: 1x100G
+    E1/2: 1x100G
+    E1/3: 1x100G
+    E1/4: 1x100G
+    E1/5: 1x100G
+    E1/6: 1x100G
+    E1/7: 1x100G
+    E1/8: 1x100G
+---
+###
+### External
+###
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: External
+metadata:
+  name: default--5835
+spec:
+  ipv4Namespace: default
+  inboundCommunity: 65102:3001
+  outboundCommunity: 3001:65102
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds3000-01--e1-2-4-external--5835
+spec:
+  external:
+    link:
+      switch:
+        port: ds3000-01/E1/2/4
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: ds3000-02--e1-2-4-external--5835
+spec:
+  external:
+    link:
+      switch:
+        port: ds3000-02/E1/2/4
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: ExternalAttachment
+metadata:
+  name: ds3000-01-default--5835
+spec:
+  external: default--5835
+  connection: ds3000-01--e1-2-4-external--5835
+  switch:
+    vlan: 20
+    ip: 192.168.10.2/30
+  neighbor:
+    asn: 64102
+    ip: 192.168.10.1
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: ExternalAttachment
+metadata:
+  name: ds3000-02-default--5835
+spec:
+  external: default--5835
+  connection: ds3000-02--e1-2-4-external--5835
+  switch:
+    vlan: 30
+    ip: 192.168.13.2/30
+  neighbor:
+    asn: 64102
+    ip: 192.168.13.1

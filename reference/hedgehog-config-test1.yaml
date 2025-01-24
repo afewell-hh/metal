@@ -1,0 +1,439 @@
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: VLANNamespace
+metadata:
+  name: default
+spec:
+  ranges:
+    - from: 1000
+      to: 2999
+
+---
+apiVersion: vpc.githedgehog.com/v1beta1
+kind: IPv4Namespace
+metadata:
+  name: default
+spec:
+  subnets:
+    - 10.10.0.0/16
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: mclag-1
+  namespace: default
+spec: {}
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: SwitchGroup
+metadata:
+  name: mclag-2
+  namespace: default
+spec: {}
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  name: dell-s5232f-on-01
+  namespace: default
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.10:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/3
+    link.hhfab.githedgehog.com/M1: pci@0000:83:00.0
+spec:
+  profile: dell-s5232f-on
+  role: spine
+  description: spine-1
+  boot:
+    mac: 00:1B:44:11:3A:01
+    serial: CN123F2B001UB2001
+  portBreakouts:
+    E1/32: 4x25G
+  portGroups:
+    1-48:
+      speed: 100G
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  name: dell-s5232f-on-02
+  namespace: default
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.11:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/4
+    link.hhfab.githedgehog.com/M1: pci@0000:83:00.1
+spec:
+  profile: dell-s5232f-on
+  role: spine
+  description: spine-2
+  boot:
+    mac: 00:1B:44:11:3A:02
+    serial: CN123F2B002UB2002
+  portBreakouts:
+    E1/32: 4x25G
+  portGroups:
+    1-48:
+      speed: 100G
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  name: dell-s5248f-on-01
+  namespace: default
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.20:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/10
+    link.hhfab.githedgehog.com/M1: pci@0000:84:00.0
+spec:
+  profile: dell-s5248f-on
+  role: leaf
+  description: leaf-1
+  boot:
+    mac: 00:1B:44:11:3A:03
+    serial: DX030F2B003UB2003
+  portBreakouts:
+    E1/55: 4x25G
+    E1/56: 4x25G
+  portGroups:
+    1-48:
+      speed: 25G
+    49-54:
+      speed: 100G
+  redundancy:
+    group: mclag-1
+    type: mclag
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5248f-on-01--vpc-loopback
+  namespace: default
+spec:
+  vpcLoopback:
+    switch: dell-s5248f-on-01
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  name: dell-s5248f-on-02
+  namespace: default
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.21:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/11
+    link.hhfab.githedgehog.com/M1: pci@0000:84:00.1
+spec:
+  profile: dell-s5248f-on
+  role: leaf
+  description: leaf-2
+  boot:
+    mac: 00:1B:44:11:3A:04
+    serial: DX030F2B004UB2004
+  portBreakouts:
+    E1/55: 4x25G
+    E1/56: 4x25G
+  portGroups:
+    1-48:
+      speed: 25G
+    49-54:
+      speed: 100G
+  redundancy:
+    group: mclag-1
+    type: mclag
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5248f-on-02--vpc-loopback
+  namespace: default
+spec:
+  vpcLoopback:
+    switch: dell-s5248f-on-02
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5248f-on-01--mclag-domain--dell-s5248f-on-02
+  namespace: default
+spec:
+  mclagDomain:
+    peerLinks:
+      - switch1:
+          port: dell-s5248f-on-01/E1/55/1
+        switch2:
+          port: dell-s5248f-on-02/E1/55/1
+      - switch1:
+          port: dell-s5248f-on-01/E1/55/2
+        switch2:
+          port: dell-s5248f-on-02/E1/55/2
+    sessionLinks:
+      - switch1:
+          port: dell-s5248f-on-01/E1/56/1
+        switch2:
+          port: dell-s5248f-on-02/E1/56/1
+      - switch1:
+          port: dell-s5248f-on-01/E1/56/2
+        switch2:
+          port: dell-s5248f-on-02/E1/56/2
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  name: dell-s5248f-on-03
+  namespace: default
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.22:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/12
+    link.hhfab.githedgehog.com/M1: pci@0000:84:00.2
+spec:
+  profile: dell-s5248f-on
+  role: leaf
+  description: leaf-3
+  boot:
+    mac: 00:1B:44:11:3A:05
+    serial: DX030F2B005UB2005
+  portBreakouts:
+    E1/55: 4x25G
+    E1/56: 4x25G
+  portGroups:
+    1-48:
+      speed: 25G
+    49-54:
+      speed: 100G
+  redundancy:
+    group: mclag-2
+    type: mclag
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5248f-on-03--vpc-loopback
+  namespace: default
+spec:
+  vpcLoopback:
+    switch: dell-s5248f-on-03
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Switch
+metadata:
+  name: dell-s5248f-on-04
+  namespace: default
+  annotations:
+    type.hhfab.githedgehog.com: hw
+    serial.hhfab.githedgehog.com: ssh://192.168.90.23:8901
+    power.hhfab.githedgehog.com/psu1: http://192.168.90.142/outlet/13
+    link.hhfab.githedgehog.com/M1: pci@0000:84:00.3
+spec:
+  profile: dell-s5248f-on
+  role: leaf
+  description: leaf-4
+  boot:
+    mac: 00:1B:44:11:3A:06
+    serial: DX030F2B006UB2006
+  portBreakouts:
+    E1/55: 4x25G
+    E1/56: 4x25G
+  portGroups:
+    1-48:
+      speed: 25G
+    49-54:
+      speed: 100G
+  redundancy:
+    group: mclag-2
+    type: mclag
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5248f-on-04--vpc-loopback
+  namespace: default
+spec:
+  vpcLoopback:
+    switch: dell-s5248f-on-04
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5248f-on-03--mclag-domain--dell-s5248f-on-04
+  namespace: default
+spec:
+  mclagDomain:
+    peerLinks:
+      - switch1:
+          port: dell-s5248f-on-03/E1/55/1
+        switch2:
+          port: dell-s5248f-on-04/E1/55/1
+      - switch1:
+          port: dell-s5248f-on-03/E1/55/2
+        switch2:
+          port: dell-s5248f-on-04/E1/55/2
+    sessionLinks:
+      - switch1:
+          port: dell-s5248f-on-03/E1/56/1
+        switch2:
+          port: dell-s5248f-on-04/E1/56/1
+      - switch1:
+          port: dell-s5248f-on-03/E1/56/2
+        switch2:
+          port: dell-s5248f-on-04/E1/56/2
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-01--fabric--dell-s5248f-on-01
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-01/E1/1
+        leaf:
+          port: dell-s5248f-on-01/E1/49
+      - spine:
+          port: dell-s5232f-on-01/E1/2
+        leaf:
+          port: dell-s5248f-on-01/E1/50
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-02--fabric--dell-s5248f-on-01
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-02/E1/1
+        leaf:
+          port: dell-s5248f-on-01/E1/51
+      - spine:
+          port: dell-s5232f-on-02/E1/2
+        leaf:
+          port: dell-s5248f-on-01/E1/52
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-01--fabric--dell-s5248f-on-02
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-01/E1/3
+        leaf:
+          port: dell-s5248f-on-02/E1/49
+      - spine:
+          port: dell-s5232f-on-01/E1/4
+        leaf:
+          port: dell-s5248f-on-02/E1/50
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-02--fabric--dell-s5248f-on-02
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-02/E1/3
+        leaf:
+          port: dell-s5248f-on-02/E1/51
+      - spine:
+          port: dell-s5232f-on-02/E1/4
+        leaf:
+          port: dell-s5248f-on-02/E1/52
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-01--fabric--dell-s5248f-on-03
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-01/E1/5
+        leaf:
+          port: dell-s5248f-on-03/E1/49
+      - spine:
+          port: dell-s5232f-on-01/E1/6
+        leaf:
+          port: dell-s5248f-on-03/E1/50
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-02--fabric--dell-s5248f-on-03
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-02/E1/5
+        leaf:
+          port: dell-s5248f-on-03/E1/51
+      - spine:
+          port: dell-s5232f-on-02/E1/6
+        leaf:
+          port: dell-s5248f-on-03/E1/52
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-01--fabric--dell-s5248f-on-04
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-01/E1/7
+        leaf:
+          port: dell-s5248f-on-04/E1/49
+      - spine:
+          port: dell-s5232f-on-01/E1/8
+        leaf:
+          port: dell-s5248f-on-04/E1/50
+
+---
+apiVersion: wiring.githedgehog.com/v1beta1
+kind: Connection
+metadata:
+  name: dell-s5232f-on-02--fabric--dell-s5248f-on-04
+  namespace: default
+spec:
+  fabric:
+    links:
+      - spine:
+          port: dell-s5232f-on-02/E1/7
+        leaf:
+          port: dell-s5248f-on-04/E1/51
+      - spine:
+          port: dell-s5232f-on-02/E1/8
+        leaf:
+          port: dell-s5248f-on-04/E1/52
