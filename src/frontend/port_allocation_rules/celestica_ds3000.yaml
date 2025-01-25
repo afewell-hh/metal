@@ -1,0 +1,4 @@
+# Celestica DS3000 Port Allocation Rules
+fabric: ["1-32"]     # QSFP28 ports for fabric connections
+server: ["1-32"]       # SFP28 port for server connections
+management: ["M1"]   # Management port
