@@ -10,11 +10,11 @@ We are implementing the port assignment and validation logic with a focus on pro
    - Implementing breakout configuration support in `portAssignmentManager.js`
    - Adding port speed determination from switch profiles
    - Enhancing validation rules for fabric design
-   - Status: Core logic implemented, working on breakout support
+   - Status: Breakout functionality implemented, working on integration
    - Next steps: 
-     - Complete breakout configuration handling
-     - Add unit tests for port assignment logic
      - Integrate with configuration generator
+     - Add unit tests for port assignment logic
+     - Complete breakout configuration handling
 
 2. **Configuration Generation**
    - Updating output format to support breakout ports
@@ -35,10 +35,10 @@ We are implementing the port assignment and validation logic with a focus on pro
    - Enhanced validation against profiles
 
 #### Immediate Next Tasks
-1. Complete breakout configuration support
-2. Add unit tests for port assignment
-3. Update configuration generator
-4. Add integration tests
+1. Update configuration generator to handle new port assignment format
+2. Add validation tests for breakout configurations
+3. Implement error handling for breakout-specific scenarios
+4. Add integration tests for the complete port assignment flow
 
 ## Future Enhancements
 
@@ -102,10 +102,10 @@ We are implementing the port assignment and validation logic with a focus on pro
 ## Key Milestones and Commits
 
 ### Latest Milestone: Breakout Configuration Implementation
+- Commit: `8d9fdc1` - Implement breakout port assignment
 - Commit: `605a10c` - Implement breakout port calculation
 - Commit: `a24d20f` - Initial port assignment and validation logic
 - Commit: `4fb4ddc` - TOI documentation and profile management
-- Commit: `54984ba` - PAR rules update for Celestica DS3000
 
 ### Previous Milestones
 - Basic frontend structure: `<add-commit-hash>`
@@ -115,39 +115,46 @@ We are implementing the port assignment and validation logic with a focus on pro
 ## Session Handoff (Updated: 2025-01-25)
 
 ### Current Focus
-Implementing breakout configuration support in the port assignment system. The `calculateAvailablePorts` method has been updated to handle breakout configurations properly.
+Implementing breakout configuration support in the port assignment system. The core breakout functionality is now implemented, including both port calculation and assignment.
 
 ### Key Context
 1. **Latest Changes**
-   - Enhanced `calculateAvailablePorts` to handle breakout configurations
-   - Added tracking of breakout capabilities per port
-   - Updated validation messages to reflect logical port counts
-   - Added proper JSDoc documentation
+   - Implemented comprehensive breakout port assignment logic
+   - Added smart breakout mode selection based on speed and port count
+   - Updated port assignment data structure to include breakout information
+   - Added proper subport identifier generation
+   - Modified generatePortAssignments to use new breakout-aware port assignment
 
 2. **Current Implementation State**
    ```javascript
-   // Example of current port capacity calculation
+   // Example of current port assignment output
    {
-     "totalLogicalPorts": 48,  // Total available logical ports
-     "breakoutInfo": {
-       "1": {
-         "maxLogicalPorts": 4,
-         "supportedBreakouts": ["4x25G", "2x50G"]
-       },
-       "2": {
-         "maxLogicalPorts": 1,
-         "supportedBreakouts": []
+     "leaves": [{
+       "switchId": "leaf1",
+       "model": "celestica_ds3000",
+       "ports": {
+         "fabric": [{
+           "id": "1",
+           "speed": "25G",
+           "breakout": "4x25G",
+           "subPorts": ["1/1", "1/2", "1/3", "1/4"]
+         }],
+         "server": [{
+           "id": "5",
+           "speed": "100G",
+           "breakout": null,
+           "subPorts": null
+         }]
        }
-     },
-     "physicalPorts": 32
+     }]
    }
    ```
 
 3. **Important Decisions Made**
-   - Decided to handle breakouts at physical port level first
-   - Chose to prioritize fabric port assignment before server ports
-   - Implemented port overlap support in PAR rules
-   - Selected YAML format for port rules for readability
+   - Breakout mode selection prioritizes minimizing wasted ports
+   - Physical ports are tracked separately from logical ports
+   - Port speeds are validated against profile capabilities
+   - Subport identifiers follow the format `<physical_port>/<sub_port_number>`
 
 4. **Expected Output Format**
    ```javascript
@@ -173,20 +180,10 @@ Implementing breakout configuration support in the port assignment system. The `
    ```
 
 ### Next Steps
-1. Implement breakout configuration support:
-   - Update `PortAssignmentManager.calculateAvailablePorts()`
-   - Add breakout validation in `validateFabricDesign()`
-   - Modify port assignment algorithm in `generatePortAssignments()`
-
-2. Add unit tests:
-   - Test breakout configuration handling
-   - Verify port capacity calculations
-   - Test port assignment algorithm
-
-3. Update configuration generator:
-   - Support new port format with breakouts
-   - Add port speed determination
-   - Enhance validation
+1. Update configuration generator to handle new port assignment format
+2. Add validation tests for breakout configurations
+3. Implement error handling for breakout-specific scenarios
+4. Add integration tests for the complete port assignment flow
 
 ### Current UI State
 ```
@@ -201,7 +198,7 @@ Form inputs:
 ```
 
 ### Known Issues
-1. Breakout configuration not yet supported
+1. Breakout configuration not yet supported in configuration generator
 2. Port speed determination pending
 3. Need more comprehensive validation
 
@@ -392,6 +389,6 @@ The Transfer of Information (TOI) documents are critical for maintaining project
 ## Session Continuity
 Last session ended while implementing port assignment logic. To continue:
 1. Review `portAssignmentManager.js` implementation
-2. Complete breakout configuration support
+2. Update configuration generator to handle new port assignment format
 3. Add unit tests for new functionality
-4. Update configuration generator to use new features
+4. Implement error handling for breakout-specific scenarios
