@@ -99,6 +99,114 @@ We are implementing the port assignment and validation logic with a focus on pro
    - Third-party integrations
    - Rationale: Broader platform support
 
+## Key Milestones and Commits
+
+### Latest Milestone: Port Assignment Implementation
+- Commit: `a24d20f` - Initial port assignment and validation logic
+- Commit: `4fb4ddc` - TOI documentation and profile management
+- Commit: `54984ba` - PAR rules update for Celestica DS3000
+
+### Previous Milestones
+- Basic frontend structure: `<add-commit-hash>`
+- Profile management: `<add-commit-hash>`
+- Initial configuration generation: `<add-commit-hash>`
+
+## Session Handoff (Updated: 2025-01-25)
+
+### Current Focus
+We are implementing breakout configuration support in the port assignment system.
+
+### Key Context
+1. **Latest Changes**
+   - Implemented basic port assignment logic in `portAssignmentManager.js`
+   - Updated configuration generator to use new port assignments
+   - Added comprehensive TOI documentation
+
+2. **Important Decisions Made**
+   - Decided to handle breakouts at physical port level first
+   - Chose to prioritize fabric port assignment before server ports
+   - Implemented port overlap support in PAR rules
+   - Selected YAML format for port rules for readability
+
+3. **Current Implementation State**
+   ```javascript
+   // Example of current port assignment output
+   {
+     "leaves": [{
+       "switchId": "leaf1",
+       "model": "celestica_ds3000",
+       "fabricPorts": ["1", "2", "3", "4"],
+       "serverPorts": ["5", "6", "7", "8", "9"]
+     }],
+     "spines": [{
+       "switchId": "spine1",
+       "model": "celestica_ds3000",
+       "fabricPorts": ["1", "2", "3", "4"]
+     }]
+   }
+   ```
+
+4. **Expected Output Format**
+   ```javascript
+   // Target configuration format with breakout support
+   {
+     "leaves": [{
+       "switchId": "leaf1",
+       "model": "celestica_ds3000",
+       "ports": {
+         "fabric": [{
+           "id": "1",
+           "breakout": "4x25G",
+           "subPorts": ["1/1", "1/2", "1/3", "1/4"],
+           "speed": "25G"
+         }],
+         "server": [{
+           "id": "5",
+           "speed": "100G"
+         }]
+       }
+     }]
+   }
+   ```
+
+### Next Steps
+1. Implement breakout configuration support:
+   - Update `PortAssignmentManager.calculateAvailablePorts()`
+   - Add breakout validation in `validateFabricDesign()`
+   - Modify port assignment algorithm in `generatePortAssignments()`
+
+2. Add unit tests:
+   - Test breakout configuration handling
+   - Verify port capacity calculations
+   - Test port assignment algorithm
+
+3. Update configuration generator:
+   - Support new port format with breakouts
+   - Add port speed determination
+   - Enhance validation
+
+### Current UI State
+```
+[Insert screenshot or ASCII diagram showing current UI state]
+Form inputs:
+- Leaf switch model dropdown
+- Spine switch model dropdown
+- Number of leaf switches
+- Number of spine switches
+- Uplinks per leaf
+- Total server ports
+```
+
+### Known Issues
+1. Breakout configuration not yet supported
+2. Port speed determination pending
+3. Need more comprehensive validation
+
+### Helpful Resources
+1. Switch Profiles: `/switch_profiles/profile_celestica_ds3000.go`
+2. PAR Rules: `/src/frontend/port_allocation_rules/celestica_ds3000.yaml`
+3. Core Logic: `/src/frontend/js/portAssignmentManager.js`
+
 ## Design Considerations
 
 ### Current Implementation Impact on Future Features
