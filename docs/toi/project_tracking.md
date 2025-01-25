@@ -146,6 +146,132 @@ We are implementing the port assignment and validation logic with a focus on pro
    - Add plugin system for extensions
    - Timeline: Medium-term
 
+## TOI Maintenance Guidelines
+
+### Overview
+The Transfer of Information (TOI) documents are critical for maintaining project continuity across different development sessions. These documents must be treated as living documentation that evolves with the project.
+
+### TOI Structure
+1. **architecture.md**
+   - Contains core architectural concepts
+   - Documents design decisions
+   - Explains component relationships
+   - Update when:
+     - Adding new components
+     - Changing architectural decisions
+     - Modifying core workflows
+     - Adding new file types or structures
+
+2. **implementation_state.md**
+   - Tracks current implementation status
+   - Lists known issues
+   - Documents dependencies
+   - Update when:
+     - Completing features
+     - Finding new issues
+     - Adding dependencies
+     - Changing implementation details
+
+3. **project_tracking.md**
+   - Tracks active development
+   - Plans future work
+   - Monitors technical debt
+   - Update when:
+     - Starting new work
+     - Completing features
+     - Making design decisions
+     - Identifying new requirements
+     - Planning future enhancements
+
+### Update Requirements
+1. **Frequency**
+   - Update TOI files with EVERY significant change
+   - Commit updates alongside code changes
+   - Review and update at the end of each session
+   - Verify accuracy before session end
+
+2. **Git Commits**
+   - Make frequent, atomic commits
+   - Write detailed commit messages
+   - Follow commit message format:
+     ```
+     type: Brief summary
+
+     - Detailed bullet points of changes
+     - Reasoning for changes
+     - Impact on other components
+
+     Additional context if needed
+     ```
+   - Types: feat, fix, docs, style, refactor, test, chore
+
+3. **Content Standards**
+   - Keep information current and accurate
+   - Remove outdated information
+   - Include rationale for decisions
+   - Document dependencies and relationships
+   - Note potential future impacts
+
+4. **Critical Updates**
+   - Design decisions and rationale
+   - New feature implementations
+   - Bug fixes and workarounds
+   - API changes
+   - Dependency updates
+   - Known issues
+   - Future considerations
+
+### Maintenance Workflow
+1. Before starting work:
+   - Review all TOI documents
+   - Note current status
+   - Identify relevant sections to update
+
+2. During development:
+   - Document design decisions as they're made
+   - Update implementation status
+   - Note any discovered issues
+   - Track technical debt
+
+3. After completing work:
+   - Update all affected TOI sections
+   - Review for accuracy
+   - Make detailed commit
+   - Ensure continuation instructions are clear
+
+4. Before ending session:
+   - Review all TOI documents
+   - Update project tracking
+   - Ensure clear continuation path
+   - Commit final updates
+
+### Quality Checks
+1. **Accuracy**
+   - Information reflects current state
+   - No contradictions between documents
+   - All sections are up to date
+   - Links and references are valid
+
+2. **Completeness**
+   - All significant changes documented
+   - Design decisions explained
+   - Future impacts considered
+   - Clear next steps provided
+
+3. **Clarity**
+   - Information is well-organized
+   - Writing is clear and concise
+   - Technical terms are explained
+   - Examples provided where helpful
+
+### Remember
+- TOI documents are critical for project continuity
+- Keep them updated with every significant change
+- Write for future sessions
+- Include context and rationale
+- Make frequent, detailed commits
+- Think about future implications
+
 ## Notes and Decisions
 - Decided to prioritize breakout support before adding more validation
 - Keeping configuration format extensible for future needs
