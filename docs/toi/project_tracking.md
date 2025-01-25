@@ -101,11 +101,11 @@ We are implementing the port assignment and validation logic with a focus on pro
 
 ## Key Milestones and Commits
 
-### Latest Milestone: Breakout Configuration Implementation
+### Latest Milestone: Configuration Generator Enhancement
+- Commit: `03f4c00` - Update configuration generator for breakout support
 - Commit: `8d9fdc1` - Implement breakout port assignment
 - Commit: `605a10c` - Implement breakout port calculation
 - Commit: `a24d20f` - Initial port assignment and validation logic
-- Commit: `4fb4ddc` - TOI documentation and profile management
 
 ### Previous Milestones
 - Basic frontend structure: `<add-commit-hash>`
@@ -115,75 +115,68 @@ We are implementing the port assignment and validation logic with a focus on pro
 ## Session Handoff (Updated: 2025-01-25)
 
 ### Current Focus
-Implementing breakout configuration support in the port assignment system. The core breakout functionality is now implemented, including both port calculation and assignment.
+Implementing breakout configuration support across the system. The core breakout functionality is now implemented in both port assignment and configuration generation.
 
 ### Key Context
 1. **Latest Changes**
-   - Implemented comprehensive breakout port assignment logic
-   - Added smart breakout mode selection based on speed and port count
-   - Updated port assignment data structure to include breakout information
-   - Added proper subport identifier generation
-   - Modified generatePortAssignments to use new breakout-aware port assignment
+   - Updated configuration generator to handle breakout ports
+   - Implemented proper port speed determination
+   - Added support for subport configuration
+   - Enhanced port formatting with breakout information
 
 2. **Current Implementation State**
    ```javascript
-   // Example of current port assignment output
+   // Example of current configuration output
    {
-     "leaves": [{
-       "switchId": "leaf1",
-       "model": "celestica_ds3000",
-       "ports": {
-         "fabric": [{
-           "id": "1",
-           "speed": "25G",
-           "breakout": "4x25G",
-           "subPorts": ["1/1", "1/2", "1/3", "1/4"]
-         }],
-         "server": [{
-           "id": "5",
-           "speed": "100G",
-           "breakout": null,
-           "subPorts": null
+     "metadata": {
+       "generatedAt": "2025-01-25T22:48:00Z",
+       "version": "1.0.0"
+     },
+     "fabric": {
+       "name": "example-fabric",
+       "switches": {
+         "leaves": [{
+           "id": "leaf1",
+           "model": "celestica_ds3000",
+           "ports": {
+             "fabric": [{
+               "id": "1",
+               "role": "fabric",
+               "speed": "25G",
+               "breakout": "4x25G",
+               "subPorts": [{
+                 "id": "1/1",
+                 "role": "fabric",
+                 "speed": "25G"
+               }, {
+                 "id": "1/2",
+                 "role": "fabric",
+                 "speed": "25G"
+               }]
+             }],
+             "server": [{
+               "id": "5",
+               "role": "server",
+               "speed": "100G"
+             }]
+           }
          }]
        }
-     }]
+     }
    }
    ```
 
 3. **Important Decisions Made**
-   - Breakout mode selection prioritizes minimizing wasted ports
-   - Physical ports are tracked separately from logical ports
-   - Port speeds are validated against profile capabilities
-   - Subport identifiers follow the format `<physical_port>/<sub_port_number>`
+   - Configuration format now includes detailed breakout information
+   - Port speeds are determined from switch profiles
+   - Subports maintain the same role as their parent port
+   - Breakout information is included only when a port is broken out
 
-4. **Expected Output Format**
-   ```javascript
-   // Target configuration format with breakout support
-   {
-     "leaves": [{
-       "switchId": "leaf1",
-       "model": "celestica_ds3000",
-       "ports": {
-         "fabric": [{
-           "id": "1",
-           "breakout": "4x25G",
-           "subPorts": ["1/1", "1/2", "1/3", "1/4"],
-           "speed": "25G"
-         }],
-         "server": [{
-           "id": "5",
-           "speed": "100G"
-         }]
-       }
-     }]
-   }
-   ```
-
-### Next Steps
-1. Update configuration generator to handle new port assignment format
-2. Add validation tests for breakout configurations
-3. Implement error handling for breakout-specific scenarios
-4. Add integration tests for the complete port assignment flow
+4. **Next Steps**
+   1. Add validation tests for the complete configuration flow
+   2. Implement error handling for configuration-specific scenarios
+   3. Add integration tests for port assignment and configuration
+   4. Update documentation with new configuration format
 
 ### Current UI State
 ```
