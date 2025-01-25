@@ -49,10 +49,10 @@ export class PortAssignmentManager {
         // Get available ports considering breakouts
         const availablePortsPerLeaf = this.calculateAvailablePorts(leafProfile, leafFabricPorts, leafServerPorts);
 
-        if (totalPortsNeededPerLeaf > availablePortsPerLeaf) {
+        if (totalPortsNeededPerLeaf > availablePortsPerLeaf.totalLogicalPorts) {
             errors.push(
                 `Leaf switch ${leafModel} cannot support ${uplinksPerLeaf} uplinks and ${serverPortsPerLeaf} server ports. ` +
-                `Maximum available ports: ${availablePortsPerLeaf}`
+                `Maximum available ports: ${availablePortsPerLeaf.totalLogicalPorts}`
             );
         }
 
@@ -65,10 +65,10 @@ export class PortAssignmentManager {
         
         // Validate spine has enough ports
         const availableSpinePorts = this.calculateAvailablePorts(spineProfile, spineFabricPorts, []);
-        if (downlinksPerSpine > availableSpinePorts) {
+        if (downlinksPerSpine > availableSpinePorts.totalLogicalPorts) {
             errors.push(
                 `Spine switch ${spineModel} cannot support ${downlinksPerSpine} downlinks. ` +
-                `Maximum available ports: ${availableSpinePorts}`
+                `Maximum available ports: ${availableSpinePorts.totalLogicalPorts}`
             );
         }
 
@@ -150,13 +150,48 @@ export class PortAssignmentManager {
 
     /**
      * Calculates available ports considering breakout configurations
+     * @param {Object} profile - Switch profile containing breakout capabilities
+     * @param {Array<string>} fabricPorts - List of valid fabric ports
+     * @param {Array<string>} serverPorts - List of valid server ports
+     * @returns {Object} Available port counts and breakout information
      * @private
      */
     calculateAvailablePorts(profile, fabricPorts, serverPorts) {
-        // TODO: Implement breakout logic using profile information
-        // For now, return the total number of unique ports
         const uniquePorts = new Set([...fabricPorts, ...serverPorts]);
-        return uniquePorts.size;
+        let totalLogicalPorts = 0;
+        const breakoutInfo = {};
+
+        // Process each physical port
+        for (const port of uniquePorts) {
+            const breakoutCapabilities = profile.getPortBreakoutCapabilities(port);
+            if (!breakoutCapabilities || breakoutCapabilities.length === 0) {
+                // Port doesn't support breakout, count as single port
+                totalLogicalPorts += 1;
+                breakoutInfo[port] = {
+                    maxLogicalPorts: 1,
+                    supportedBreakouts: []
+                };
+                continue;
+            }
+
+            // Find the breakout mode that provides the most logical ports
+            const maxBreakout = breakoutCapabilities.reduce((max, current) => {
+                const portCount = parseInt(current.split('x')[0]);
+                return portCount > max ? portCount : max;
+            }, 1);
+
+            totalLogicalPorts += maxBreakout;
+            breakoutInfo[port] = {
+                maxLogicalPorts: maxBreakout,
+                supportedBreakouts: breakoutCapabilities
+            };
+        }
+
+        return {
+            totalLogicalPorts,
+            breakoutInfo,
+            physicalPorts: uniquePorts.size
+        };
     }
 
     /**
