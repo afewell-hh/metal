@@ -1,24 +1,69 @@
 # Metal Architecture and Design Considerations
 
+## Project Overview
+Metal is a configuration generation tool for network fabric designs. It takes user inputs about their desired network topology and generates appropriate switch configurations, considering complex port allocation rules and hardware capabilities.
+
+## Key Concepts
+1. **Fabric Design**
+   - A fabric consists of spine and leaf switches in a Clos architecture
+   - Each leaf switch must connect to every spine switch
+   - Server connections are distributed across leaf switches
+   - Port speeds and breakout configurations affect available connectivity
+
+2. **Switch Models**
+   - Each switch model has specific capabilities defined in Go profile files
+   - Models can inherit properties from other models (e.g., Supermicro inheriting from Celestica)
+   - Models define available ports, speeds, and breakout capabilities
+
 ## Core Components
 
-### Switch Profiles
-- Located in `/switch_profiles/`
+### Switch Profiles (`/switch_profiles/`)
 - Go files containing comprehensive switch specifications
+- Naming pattern: `profile_<model>.go`
 - Contains critical logic for:
   - Port mappings (physical to logical)
   - Breakout configurations
   - Speed capabilities
   - Port naming conventions
   - Platform-specific attributes
+- Key files to examine:
+  - `profile_celestica_ds3000.go`: Base model example
+  - `profile_supermicro_sse_c4632.go`: Inheritance example
 
-### Port Allocation Rules (PAR)
-- Located in `/src/frontend/port_allocation_rules/`
+### Port Allocation Rules (`/src/frontend/port_allocation_rules/`)
 - YAML files defining valid port assignments
+- Naming pattern: `<model>.yaml`
 - Key characteristics:
   - Ports can be valid for multiple roles (fabric/server overlap allowed)
   - Port ranges use inclusive notation (e.g., "1-32")
   - Must be considered alongside breakout configurations
+- Example structure:
+  ```yaml
+  fabric: ["1-32"]     # QSFP28 ports for fabric connections
+  server: ["1-32"]     # SFP28 port for server connections
+  management: ["M1"]   # Management port
+  ```
+
+### Frontend Components (`/src/frontend/js/`)
+1. **SwitchProfileManager** (`switchProfileManager.js`)
+   - Loads and parses Go profile files
+   - Handles profile inheritance
+   - Provides port validation methods
+
+2. **PortAllocationRules** (`portAllocationRules.js`)
+   - Loads and parses YAML rules
+   - Validates port assignments
+   - Handles overlapping port ranges
+
+3. **PortAssignmentManager** (`portAssignmentManager.js`)
+   - Implements port assignment algorithm
+   - Validates fabric designs
+   - Handles breakout configurations
+
+4. **ConfigGenerator** (`configGenerator.js`)
+   - Generates final switch configurations
+   - Applies port assignments
+   - Creates output configuration objects
 
 ## Port Assignment Logic
 
@@ -62,13 +107,41 @@
    - Must use correct format for target platform (SONiC)
    - Reference switch profile for naming logic
 
-## Important Files
-- Switch Profiles: `/switch_profiles/profile_*.go`
-- PAR Rules: `/src/frontend/port_allocation_rules/*.yaml`
-- Frontend Logic: `/src/frontend/js/`
-  - `switchProfileManager.js`: Profile parsing and management
-  - `portAllocationRules.js`: PAR rule handling
-  - `configGenerator.js`: Configuration generation
+3. Breakout Types:
+   - 4x25G: One 100G port into four 25G ports
+   - 2x50G: One 100G port into two 50G ports
+   - Must validate speed compatibility with switch model
+
+## Configuration Output Format
+```javascript
+{
+  metadata: {
+    generatedAt: string,
+    version: string
+  },
+  fabric: {
+    name: string,
+    description: string,
+    switches: {
+      leaves: Array<{
+        id: string,
+        model: string,
+        ports: {
+          fabric: Array<PortConfig>,
+          server: Array<PortConfig>
+        }
+      }>,
+      spines: Array<{
+        id: string,
+        model: string,
+        ports: {
+          fabric: Array<PortConfig>
+        }
+      }>
+    }
+  }
+}
+```
 
 ## Development Guidelines
 1. Always validate against switch profiles before making port assignments
@@ -84,3 +157,12 @@
 3. Verify port overlap handling
 4. Test different spine/leaf quantities
 5. Verify even distribution of server ports
+
+## Important Files to Review
+1. Switch Profiles: Review all files in `/switch_profiles/` to understand model capabilities
+2. PAR Rules: Check `/src/frontend/port_allocation_rules/` for port rules
+3. Core Logic: 
+   - `switchProfileManager.js`: Profile handling
+   - `portAssignmentManager.js`: Port assignment logic
+   - `configGenerator.js`: Configuration generation
+4. Tests: Review test files for examples of expected behavior
