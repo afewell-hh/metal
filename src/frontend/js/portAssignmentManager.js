@@ -106,6 +106,7 @@ export class PortAssignmentManager {
         // Get valid ports for leaf switches
         const leafFabricPorts = this.switchProfileManager.getValidPorts(leafModel, 'fabric');
         const leafServerPorts = this.switchProfileManager.getValidPorts(leafModel, 'server');
+        const leafProfile = this.switchProfileManager.getEffectiveProfile(leafModel);
 
         // Calculate server ports per leaf
         const serverPortsPerLeaf = Math.ceil(totalServerPorts / leafSwitches);
@@ -115,24 +116,27 @@ export class PortAssignmentManager {
             const leafAssignment = {
                 switchId: `leaf${leafIdx + 1}`,
                 model: leafModel,
-                fabricPorts: [],
-                serverPorts: []
+                ports: {
+                    fabric: [],
+                    server: []
+                }
             };
 
             // Assign fabric ports first
-            const fabricPorts = this.assignPorts(leafFabricPorts, uplinksPerLeaf);
-            leafAssignment.fabricPorts = fabricPorts;
+            const fabricPorts = this.assignPorts(leafFabricPorts, uplinksPerLeaf, leafProfile, '100G');
+            leafAssignment.ports.fabric = fabricPorts;
 
             // Then assign server ports from remaining available ports
-            const usedPorts = new Set(fabricPorts);
+            const usedPorts = new Set(fabricPorts.map(p => p.id));
             const availableServerPorts = leafServerPorts.filter(port => !usedPorts.has(port));
-            leafAssignment.serverPorts = this.assignPorts(availableServerPorts, serverPortsPerLeaf);
+            leafAssignment.ports.server = this.assignPorts(availableServerPorts, serverPortsPerLeaf, leafProfile, '25G');
 
             assignments.leaves.push(leafAssignment);
         }
 
         // Get valid ports for spine switches
         const spineFabricPorts = this.switchProfileManager.getValidPorts(spineModel, 'fabric');
+        const spineProfile = this.switchProfileManager.getEffectiveProfile(spineModel);
         const downlinksPerSpine = leafSwitches * (uplinksPerLeaf / spineSwitches);
 
         // Generate assignments for each spine switch
@@ -140,12 +144,118 @@ export class PortAssignmentManager {
             const spineAssignment = {
                 switchId: `spine${spineIdx + 1}`,
                 model: spineModel,
-                fabricPorts: this.assignPorts(spineFabricPorts, downlinksPerSpine)
+                ports: {
+                    fabric: this.assignPorts(spineFabricPorts, downlinksPerSpine, spineProfile, '100G')
+                }
             };
             assignments.spines.push(spineAssignment);
         }
 
         return assignments;
+    }
+
+    /**
+     * Assigns ports from available pool considering breakout configurations
+     * @param {Array<string>} availablePorts - List of available physical ports
+     * @param {number} requiredPorts - Number of logical ports needed
+     * @param {Object} profile - Switch profile containing breakout capabilities
+     * @param {string} speed - Required port speed (e.g., "100G", "25G")
+     * @returns {Array<Object>} Assigned ports with breakout information
+     * @private
+     */
+    assignPorts(availablePorts, requiredPorts, profile, speed) {
+        const assignments = [];
+        let remainingPorts = requiredPorts;
+        let portIndex = 0;
+
+        while (remainingPorts > 0 && portIndex < availablePorts.length) {
+            const physicalPort = availablePorts[portIndex];
+            const breakoutCapabilities = profile.getPortBreakoutCapabilities(physicalPort);
+            
+            // Find the most suitable breakout mode based on speed and remaining ports
+            const breakoutMode = this.selectBreakoutMode(breakoutCapabilities, speed, remainingPorts);
+            
+            if (!breakoutMode) {
+                // No suitable breakout mode found, use port as is if speed matches
+                if (profile.getPortSpeed(physicalPort) === speed) {
+                    assignments.push({
+                        id: physicalPort,
+                        speed: speed,
+                        breakout: null,
+                        subPorts: null
+                    });
+                    remainingPorts--;
+                }
+            } else {
+                // Apply breakout configuration
+                const [numSubPorts] = breakoutMode.match(/\d+/);
+                const subPortSpeed = breakoutMode.split('x')[1];
+                const subPorts = Array.from(
+                    { length: parseInt(numSubPorts) },
+                    (_, i) => `${physicalPort}/${i + 1}`
+                );
+
+                assignments.push({
+                    id: physicalPort,
+                    speed: subPortSpeed,
+                    breakout: breakoutMode,
+                    subPorts: subPorts
+                });
+                remainingPorts -= parseInt(numSubPorts);
+            }
+            portIndex++;
+        }
+
+        if (remainingPorts > 0) {
+            throw new Error(`Not enough ports available. Still need ${remainingPorts} more ports.`);
+        }
+
+        return assignments;
+    }
+
+    /**
+     * Selects the most appropriate breakout mode based on required speed and port count
+     * @param {Array<string>} breakoutCapabilities - Available breakout modes
+     * @param {string} requiredSpeed - Required port speed
+     * @param {number} remainingPorts - Number of ports still needed
+     * @returns {string|null} Selected breakout mode or null if none suitable
+     * @private
+     */
+    selectBreakoutMode(breakoutCapabilities, requiredSpeed, remainingPorts) {
+        if (!breakoutCapabilities || breakoutCapabilities.length === 0) {
+            return null;
+        }
+
+        // Filter breakout modes that match the required speed
+        const validModes = breakoutCapabilities.filter(mode => {
+            const [, speed] = mode.split('x');
+            return speed === requiredSpeed;
+        });
+
+        if (validModes.length === 0) {
+            return null;
+        }
+
+        // Sort by number of subports, prioritizing modes that waste fewer ports
+        return validModes.sort((a, b) => {
+            const aPorts = parseInt(a.match(/\d+/)[0]);
+            const bPorts = parseInt(b.match(/\d+/)[0]);
+            
+            // Calculate waste (negative numbers mean not enough ports)
+            const aWaste = aPorts - remainingPorts;
+            const bWaste = bPorts - remainingPorts;
+            
+            // Prefer positive but minimal waste
+            if (aWaste >= 0 && bWaste >= 0) {
+                return aWaste - bWaste;
+            }
+            // Prefer the one that provides more ports if both insufficient
+            if (aWaste < 0 && bWaste < 0) {
+                return bPorts - aPorts;
+            }
+            // Prefer the one that can fulfill the requirement
+            return bWaste - aWaste;
+        })[0];
     }
 
     /**
@@ -192,13 +302,5 @@ export class PortAssignmentManager {
             breakoutInfo,
             physicalPorts: uniquePorts.size
         };
-    }
-
-    /**
-     * Assigns ports from available pool
-     * @private
-     */
-    assignPorts(availablePorts, count) {
-        return availablePorts.slice(0, count);
     }
 }
