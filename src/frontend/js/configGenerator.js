@@ -6,6 +6,46 @@ class ConfigGenerator {
         this.portAssignmentManager = new PortAssignmentManager(switchProfileManager);
     }
 
+    /**
+     * Gets the port speed from the switch profile
+     * @param {string} model - Switch model
+     * @param {string} port - Port identifier
+     * @returns {string} Port speed (e.g., "100G", "25G")
+     */
+    getPortSpeed(model, port) {
+        const profile = this.switchProfileManager.getEffectiveProfile(model);
+        return profile.getPortSpeed(port);
+    }
+
+    /**
+     * Formats port configuration with breakout information
+     * @param {Object} portConfig - Port configuration from port assignment
+     * @param {string} role - Port role (fabric/server)
+     * @returns {Object} Formatted port configuration
+     * @private
+     */
+    formatPortConfig(portConfig, role) {
+        const baseConfig = {
+            id: portConfig.id,
+            role: role,
+            speed: portConfig.speed
+        };
+
+        if (portConfig.breakout) {
+            return {
+                ...baseConfig,
+                breakout: portConfig.breakout,
+                subPorts: portConfig.subPorts.map(subPort => ({
+                    id: subPort,
+                    role: role,
+                    speed: portConfig.speed
+                }))
+            };
+        }
+
+        return baseConfig;
+    }
+
     async generateConfig(formData) {
         // First validate the fabric design
         const validation = this.portAssignmentManager.validateFabricDesign({
@@ -45,37 +85,26 @@ class ConfigGenerator {
                         id: leaf.switchId,
                         model: leaf.model,
                         ports: {
-                            fabric: leaf.fabricPorts.map(port => ({
-                                id: port,
-                                role: 'fabric',
-                                speed: this.getPortSpeed(leaf.model, port)
-                            })),
-                            server: leaf.serverPorts.map(port => ({
-                                id: port,
-                                role: 'server',
-                                speed: this.getPortSpeed(leaf.model, port)
-                            }))
+                            fabric: leaf.ports.fabric.map(port => 
+                                this.formatPortConfig(port, 'fabric')
+                            ),
+                            server: leaf.ports.server.map(port => 
+                                this.formatPortConfig(port, 'server')
+                            )
                         }
                     })),
                     spines: portAssignments.spines.map(spine => ({
                         id: spine.switchId,
                         model: spine.model,
                         ports: {
-                            fabric: spine.fabricPorts.map(port => ({
-                                id: port,
-                                role: 'fabric',
-                                speed: this.getPortSpeed(spine.model, port)
-                            }))
+                            fabric: spine.ports.fabric.map(port =>
+                                this.formatPortConfig(port, 'fabric')
+                            )
                         }
                     }))
                 }
             }
         };
-    }
-
-    getPortSpeed(model, port) {
-        // TODO: Implement port speed determination using switch profile
-        return '100G';
     }
 }
 
