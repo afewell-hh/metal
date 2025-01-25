@@ -101,7 +101,8 @@ We are implementing the port assignment and validation logic with a focus on pro
 
 ## Key Milestones and Commits
 
-### Latest Milestone: Port Assignment Implementation
+### Latest Milestone: Breakout Configuration Implementation
+- Commit: `605a10c` - Implement breakout port calculation
 - Commit: `a24d20f` - Initial port assignment and validation logic
 - Commit: `4fb4ddc` - TOI documentation and profile management
 - Commit: `54984ba` - PAR rules update for Celestica DS3000
@@ -114,37 +115,39 @@ We are implementing the port assignment and validation logic with a focus on pro
 ## Session Handoff (Updated: 2025-01-25)
 
 ### Current Focus
-We are implementing breakout configuration support in the port assignment system.
+Implementing breakout configuration support in the port assignment system. The `calculateAvailablePorts` method has been updated to handle breakout configurations properly.
 
 ### Key Context
 1. **Latest Changes**
-   - Implemented basic port assignment logic in `portAssignmentManager.js`
-   - Updated configuration generator to use new port assignments
-   - Added comprehensive TOI documentation
+   - Enhanced `calculateAvailablePorts` to handle breakout configurations
+   - Added tracking of breakout capabilities per port
+   - Updated validation messages to reflect logical port counts
+   - Added proper JSDoc documentation
 
-2. **Important Decisions Made**
+2. **Current Implementation State**
+   ```javascript
+   // Example of current port capacity calculation
+   {
+     "totalLogicalPorts": 48,  // Total available logical ports
+     "breakoutInfo": {
+       "1": {
+         "maxLogicalPorts": 4,
+         "supportedBreakouts": ["4x25G", "2x50G"]
+       },
+       "2": {
+         "maxLogicalPorts": 1,
+         "supportedBreakouts": []
+       }
+     },
+     "physicalPorts": 32
+   }
+   ```
+
+3. **Important Decisions Made**
    - Decided to handle breakouts at physical port level first
    - Chose to prioritize fabric port assignment before server ports
    - Implemented port overlap support in PAR rules
    - Selected YAML format for port rules for readability
-
-3. **Current Implementation State**
-   ```javascript
-   // Example of current port assignment output
-   {
-     "leaves": [{
-       "switchId": "leaf1",
-       "model": "celestica_ds3000",
-       "fabricPorts": ["1", "2", "3", "4"],
-       "serverPorts": ["5", "6", "7", "8", "9"]
-     }],
-     "spines": [{
-       "switchId": "spine1",
-       "model": "celestica_ds3000",
-       "fabricPorts": ["1", "2", "3", "4"]
-     }]
-   }
-   ```
 
 4. **Expected Output Format**
    ```javascript
