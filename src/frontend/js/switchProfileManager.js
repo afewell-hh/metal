@@ -29,11 +29,7 @@ export class SwitchProfileManager {
         if (this._initialized) return;
 
         try {
-            // First load base profiles (those without dependencies)
-            await this.loadBaseProfiles();
-            // Then load dependent profiles
-            await this.loadDependentProfiles();
-            // Finally load port rules
+            // Load port rules, which now contain all the necessary information
             await this.loadPortRules();
             
             this._initialized = true;
@@ -43,40 +39,9 @@ export class SwitchProfileManager {
         }
     }
 
-    // Load all base profiles (those without dependencies)
-    async loadBaseProfiles() {
-        await Promise.all(
-            this.baseProfiles.map(model => this.loadProfile(model))
-        );
-    }
-
-    // Load profiles that depend on other profiles
-    async loadDependentProfiles() {
-        // For each profile we've loaded
-        for (const [model, profile] of this.profiles.entries()) {
-            if (profile.useProfileFrom) {
-                const baseModel = profile.useProfileFrom.model;
-                const baseProfile = this.profiles.get(baseModel);
-                if (!baseProfile) {
-                    throw new Error(`Base profile ${baseModel} not found for ${model}`);
-                }
-                // Merge the base profile into this profile
-                this.profiles.set(model, {
-                    ...baseProfile,
-                    ...profile,
-                    // Deep merge any nested objects
-                    portRules: {
-                        ...baseProfile.portRules,
-                        ...profile.portRules
-                    }
-                });
-            }
-        }
-    }
-
     // Load all port allocation rules
     async loadPortRules() {
-        for (const model of this.profiles.keys()) {
+        for (const model of this.baseProfiles) {
             try {
                 const response = await fetch(`/port_allocation_rules/${model}.yaml`);
                 if (!response.ok) {
@@ -85,6 +50,21 @@ export class SwitchProfileManager {
                 }
                 const text = await response.text();
                 const rules = jsyaml.load(text);
+
+                // Convert the YAML format to our internal format
+                const profile = {
+                    metadata: {
+                        name: model,
+                        displayName: model.replace(/_/g, ' ').toUpperCase()
+                    },
+                    portRules: {
+                        fabric: { validPorts: this.expandPortRanges(rules.fabric || []) },
+                        server: { validPorts: this.expandPortRanges(rules.server || []) },
+                        management: { validPorts: this.expandPortRanges(rules.management || []) }
+                    }
+                };
+
+                this.profiles.set(model, profile);
                 this.portRules.set(model, rules);
             } catch (error) {
                 console.error(`Failed to load PAR for ${model}:`, error);
@@ -92,76 +72,20 @@ export class SwitchProfileManager {
         }
     }
 
-    // Load a single switch profile
-    async loadProfile(model) {
-        try {
-            const response = await fetch(`/switch_profiles/profile_${model}.go`);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+    // Helper to expand port ranges like ["1-4", "6", "8-10"] to ["1","2","3","4","6","8","9","10"]
+    expandPortRanges(ranges) {
+        const ports = new Set();
+        ranges.forEach(range => {
+            if (typeof range === 'string' && range.includes('-')) {
+                const [start, end] = range.split('-').map(Number);
+                for (let i = start; i <= end; i++) {
+                    ports.add(i.toString());
+                }
+            } else {
+                ports.add(range.toString());
             }
-            const text = await response.text();
-            
-            // Parse the Go profile into a JavaScript object
-            const profile = this.parseGoProfile(text);
-            this.profiles.set(model, profile);
-        } catch (error) {
-            console.error(`Failed to load switch profile for ${model}:`, error);
-            throw error;
-        }
-    }
-
-    // Simple parser for Go switch profiles
-    parseGoProfile(goCode) {
-        const profile = {
-            metadata: {},
-            portRules: {
-                fabric: { validPorts: [] },
-                server: { validPorts: [] },
-                management: { validPorts: [] }
-            }
-        };
-
-        // Extract basic metadata using regex
-        const nameMatch = goCode.match(/Name:\s*"([^"]+)"/);
-        if (nameMatch) profile.metadata.name = nameMatch[1];
-
-        const displayNameMatch = goCode.match(/DisplayName:\s*"([^"]+)"/);
-        if (displayNameMatch) profile.metadata.displayName = displayNameMatch[1];
-
-        // Extract port rules
-        const fabricPortsMatch = goCode.match(/FabricPorts:\s*\[\]string\{([^}]+)\}/);
-        if (fabricPortsMatch) {
-            profile.portRules.fabric.validPorts = fabricPortsMatch[1]
-                .split(',')
-                .map(p => p.trim().replace(/"/g, ''))
-                .filter(p => p);
-        }
-
-        const serverPortsMatch = goCode.match(/ServerPorts:\s*\[\]string\{([^}]+)\}/);
-        if (serverPortsMatch) {
-            profile.portRules.server.validPorts = serverPortsMatch[1]
-                .split(',')
-                .map(p => p.trim().replace(/"/g, ''))
-                .filter(p => p);
-        }
-
-        const mgmtPortsMatch = goCode.match(/ManagementPorts:\s*\[\]string\{([^}]+)\}/);
-        if (mgmtPortsMatch) {
-            profile.portRules.management.validPorts = mgmtPortsMatch[1]
-                .split(',')
-                .map(p => p.trim().replace(/"/g, ''))
-                .filter(p => p);
-        }
-
-        return profile;
-    }
-
-    // Get the effective profile for a switch model
-    getEffectiveProfile(model) {
-        if (!this.profiles.has(model)) {
-            throw new Error(`Profile not found for model: ${model}`);
-        }
-        return this.profiles.get(model);
+        });
+        return Array.from(ports).sort((a, b) => parseInt(a) - parseInt(b));
     }
 
     // Get valid ports for a given role
@@ -182,6 +106,14 @@ export class SwitchProfileManager {
         return profile.portRules[role].validPorts || [];
     }
 
+    // Get the effective profile for a switch model
+    getEffectiveProfile(model) {
+        if (!this.profiles.has(model)) {
+            throw new Error(`Profile not found for model: ${model}`);
+        }
+        return this.profiles.get(model);
+    }
+
     // Get all supported switch models
     getSupportedModels() {
         return Array.from(this.profiles.keys());
@@ -191,27 +123,5 @@ export class SwitchProfileManager {
     isValidPort(model, role, port) {
         const validPorts = this.getValidPorts(model, role);
         return validPorts.includes(port);
-    }
-
-    // Helper to expand port ranges like ["1-4", "6", "8-10"] to [1,2,3,4,6,8,9,10]
-    expandPortRanges(ranges) {
-        const ports = new Set();
-        ranges.forEach(range => {
-            if (range.includes('-')) {
-                const [start, end] = range.split('-').map(Number);
-                for (let i = start; i <= end; i++) {
-                    ports.add(i);
-                }
-            } else if (range.toLowerCase() === 'm1') {
-                ports.add('M1');
-            } else {
-                ports.add(Number(range));
-            }
-        });
-        return Array.from(ports).sort((a, b) => {
-            if (a === 'M1') return -1;
-            if (b === 'M1') return 1;
-            return a - b;
-        });
     }
 }
