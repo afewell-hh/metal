@@ -69,7 +69,7 @@ export function ConfigForm() {
       for (let i = 0; i < formData.topology.spines.count; i++) {
         const name = generateSwitchName(formData.topology.spines.model, i);
         if (!formData.switchSerials[name]) {
-          newSerials[name] = '';
+          newSerials[name] = 'TODO';
         }
       }
 
@@ -77,7 +77,7 @@ export function ConfigForm() {
       for (let i = 0; i < formData.topology.leaves.count; i++) {
         const name = generateSwitchName(formData.topology.leaves.model, i);
         if (!formData.switchSerials[name]) {
-          newSerials[name] = '';
+          newSerials[name] = 'TODO';
         }
       }
 

@@ -91,21 +91,60 @@ class ConfigGenerator {
             description: `${rolePrefix}-${switchNumber}`,
             portBreakouts: config.portBreakouts || {},
             boot: {
-                serial: config.serial || "TODO"
+                serial: config.serial
             }
         });
     }
 
-    // Generate fabric Connection configuration
-    generateFabricConnection(spineName, leafName, links) {
-        return this.createK8sObject('Connection', `${spineName}--fabric--${leafName}`, {
-            fabric: {
-                links: links.map(link => ({
-                    spine: { port: this.generatePortName(spineName, link.spinePort) },
-                    leaf: { port: this.generatePortName(leafName, link.leafPort) }
-                }))
+    // Generate fabric connections between spine and leaf switches
+    generateFabricConnections(spines, leaves, config) {
+        const connections = [];
+        const uplinksPerLeaf = config.uplinksPerLeaf;
+        const numSpines = spines.length;
+
+        // For each leaf switch
+        leaves.forEach((leaf, leafIndex) => {
+            // Calculate how many uplinks should go to each spine
+            const uplinksPerSpine = Math.floor(uplinksPerLeaf / numSpines);
+            if (uplinksPerSpine === 0) {
+                throw new Error(`Cannot evenly distribute ${uplinksPerLeaf} uplinks across ${numSpines} spines`);
             }
+
+            // For each spine switch
+            spines.forEach((spine, spineIndex) => {
+                const links = [];
+                
+                // Generate the links for this spine-leaf pair
+                for (let i = 0; i < uplinksPerSpine; i++) {
+                    // Calculate spine port number - each leaf gets a dedicated range on the spine
+                    const spinePort = leafIndex * uplinksPerSpine + i + 1;
+                    
+                    // Calculate leaf port number - distribute across 49,51,53,55
+                    // spineIndex determines which set of ports to use
+                    const leafPort = 49 + (spineIndex * uplinksPerSpine * 2) + (i * 2);
+                    
+                    links.push({
+                        spine: {
+                            port: `${spine.name}/E1/${spinePort}`
+                        },
+                        leaf: {
+                            port: `${leaf.name}/E1/${leafPort}`
+                        }
+                    });
+                }
+
+                if (links.length > 0) {
+                    connections.push(
+                        this.createK8sObject('Connection', 
+                            `${spine.name}--fabric--${leaf.name}`,
+                            { fabric: { links } }
+                        )
+                    );
+                }
+            });
         });
+
+        return connections;
     }
 
     async generateConfig(formData) {
@@ -131,9 +170,10 @@ class ConfigGenerator {
             const leafModel = formData.topology.leaves.model;
 
             // Generate spine switch objects
+            const spines = [];
             for (let i = 0; i < formData.topology.spines.count; i++) {
                 const spineName = generateSwitchName(spineModel, i);
-                k8sObjects.push(this.generateSwitch(spineName, spineModel, 'spine', {
+                spines.push(this.generateSwitch(spineName, spineModel, 'spine', {
                     portGroupSpeeds: config.configs.spines[i].portGroupSpeeds,
                     portBreakouts: config.configs.spines[i].portBreakouts,
                     asn: config.configs.spines[i].asn,
@@ -144,9 +184,10 @@ class ConfigGenerator {
             }
 
             // Generate leaf switch objects
+            const leaves = [];
             for (let i = 0; i < formData.topology.leaves.count; i++) {
                 const leafName = generateSwitchName(leafModel, i);
-                k8sObjects.push(this.generateSwitch(leafName, leafModel, 'leaf', {
+                leaves.push(this.generateSwitch(leafName, leafModel, 'leaf', {
                     portGroupSpeeds: config.configs.leaves[i].portGroupSpeeds,
                     portBreakouts: config.configs.leaves[i].portBreakouts,
                     asn: config.configs.leaves[i].asn,
@@ -157,17 +198,7 @@ class ConfigGenerator {
             }
 
             // Generate fabric connections
-            config.configs.leaves.forEach((leaf, leafIndex) => {
-                const leafName = generateSwitchName(leafModel, leafIndex);
-                config.configs.spines.forEach((spine, spineIndex) => {
-                    const spineName = generateSwitchName(spineModel, spineIndex);
-                    const links = leaf.ports.fabric.map((fabricPort, index) => ({
-                        spinePort: spine.ports.fabric[index].id,
-                        leafPort: fabricPort.id
-                    }));
-                    k8sObjects.push(this.generateFabricConnection(spineName, leafName, links));
-                });
-            });
+            k8sObjects.push(...this.generateFabricConnections(spines, leaves, config));
 
             return k8sObjects;
         } catch (error) {
