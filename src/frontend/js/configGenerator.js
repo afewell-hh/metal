@@ -173,36 +173,34 @@ class ConfigGenerator {
             const spines = [];
             for (let i = 0; i < formData.topology.spines.count; i++) {
                 const spineName = generateSwitchName(spineModel, i);
-                spines.push(this.generateSwitch(spineName, spineModel, 'spine', {
-                    portGroupSpeeds: config.configs.spines[i].portGroupSpeeds,
+                const spineObj = this.generateSwitch(spineName, spineModel, 'spine', {
                     portBreakouts: config.configs.spines[i].portBreakouts,
-                    asn: config.configs.spines[i].asn,
-                    ip: config.configs.spines[i].ip,
-                    vtepIP: config.configs.spines[i].vtepIP,
-                    protocolIP: config.configs.spines[i].protocolIP
-                }));
+                    serial: formData.switchSerials[spineName]
+                });
+                spines.push(spineObj);
+                k8sObjects.push(spineObj);
             }
 
             // Generate leaf switch objects
             const leaves = [];
             for (let i = 0; i < formData.topology.leaves.count; i++) {
                 const leafName = generateSwitchName(leafModel, i);
-                leaves.push(this.generateSwitch(leafName, leafModel, 'leaf', {
-                    portGroupSpeeds: config.configs.leaves[i].portGroupSpeeds,
+                const leafObj = this.generateSwitch(leafName, leafModel, 'leaf', {
                     portBreakouts: config.configs.leaves[i].portBreakouts,
-                    asn: config.configs.leaves[i].asn,
-                    ip: config.configs.leaves[i].ip,
-                    vtepIP: config.configs.leaves[i].vtepIP,
-                    protocolIP: config.configs.leaves[i].protocolIP
-                }));
+                    serial: formData.switchSerials[leafName]
+                });
+                leaves.push(leafObj);
+                k8sObjects.push(leafObj);
             }
 
             // Generate fabric connections
-            k8sObjects.push(...this.generateFabricConnections(spines, leaves, config));
+            k8sObjects.push(...this.generateFabricConnections(spines, leaves, {
+                uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf
+            }));
 
             return k8sObjects;
         } catch (error) {
-            console.error('Error generating configuration:', error);
+            console.error('Error generating config:', error);
             throw error;
         }
     }
