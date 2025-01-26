@@ -256,7 +256,8 @@ function generateIPv4Namespace(name = 'default', subnets = ['10.10.0.0/16']) {
     };
 }
 
-function generateSwitchName(model, index) {
+// Helper function to generate switch names
+export function generateSwitchName(model, index) {
     const modelPrefix = model.includes('s5232') ? 's5232' : 
                        model.includes('s5248') ? 's5248' : 
                        model.replace(/[^a-zA-Z0-9]/g, '');
@@ -264,7 +265,6 @@ function generateSwitchName(model, index) {
 }
 
 export async function generateConfig(formData) {
-    // Initialize port rules
     const portRules = new PortAllocationRules();
     await portRules.initialize();
 
