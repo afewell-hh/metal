@@ -1,26 +1,32 @@
 # Project Tracking
 
-## Active Development (Last Updated: 2025-01-25)
+## Active Development (Last Updated: 2025-01-26)
 
 ### Current Sprint
-We are implementing the port assignment and validation logic with a focus on proper handling of breakout configurations.
+We are implementing proper Kubernetes CRD object generation for the Hedgehog Wiring Diagram API, with a focus on correct object structure and validation.
 
 #### In Progress
-1. **Port Assignment Logic Enhancement**
-   - Implementing breakout configuration support in `portAssignmentManager.js`
-   - Adding port speed determination from switch profiles
-   - Enhancing validation rules for fabric design
-   - Status: Breakout functionality implemented, working on integration
-   - Next steps: 
-     - Integrate with configuration generator
-     - Add unit tests for port assignment logic
-     - Complete breakout configuration handling
+1. **Configuration Generation Enhancement**
+   - Updating to generate proper Kubernetes CRD objects
+   - Implementing Hedgehog Wiring Diagram API requirements
+   - Adding network configuration fields
+   - Status: Basic structure in place, updating to match API
+   - Next steps:
+     - Update object generation to match CRD format
+     - Implement proper port naming ("device/port")
+     - Add network configuration fields (asn, ip, vtepIP, protocolIP)
+     - Add validation against API requirements
 
-2. **Configuration Generation**
-   - Updating output format to support breakout ports
-   - Enhancing validation checks
-   - Status: Basic structure in place, needs breakout support
-   - Blocked by: Completion of breakout configuration handling
+2. **Validation Implementation**
+   - Adding comprehensive validation for API requirements
+   - Implementing port naming validation
+   - Adding VLAN range overlap checks
+   - Status: Planning validation structure
+   - Next steps:
+     - Implement port name format validation
+     - Add network config field validation
+     - Add VLAN range overlap detection
+     - Implement fabric connection validation
 
 #### Recently Completed
 1. **Switch Profile Management**
@@ -112,14 +118,14 @@ We are implementing the port assignment and validation logic with a focus on pro
 - Profile management: `<add-commit-hash>`
 - Initial configuration generation: `<add-commit-hash>`
 
-## Session Handoff (Updated: 2025-01-25)
+## Session Handoff (Updated: 2025-01-26)
 
 ### Current Focus
-Implementing breakout configuration support across the system. The core breakout functionality is now implemented in both port assignment and configuration generation.
+Implementing proper Kubernetes CRD object generation for the Hedgehog Wiring Diagram API.
 
 ### Key Context
 1. **Latest Changes**
-   - Updated configuration generator to handle breakout ports
+   - Updated configuration generator to handle new port assignment format
    - Implemented proper port speed determination
    - Added support for subport configuration
    - Enhanced port formatting with breakout information
@@ -129,7 +135,7 @@ Implementing breakout configuration support across the system. The core breakout
    // Example of current configuration output
    {
      "metadata": {
-       "generatedAt": "2025-01-25T22:48:00Z",
+       "generatedAt": "2025-01-26T22:48:00Z",
        "version": "1.0.0"
      },
      "fabric": {

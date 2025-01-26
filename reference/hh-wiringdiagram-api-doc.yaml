@@ -1,0 +1,858 @@
+## wiring.githedgehog.com/v1beta1
+
+Package v1beta1 contains API Schema definitions for the wiring v1beta1 API group. It is public API group mainly for
+the underlay definition including Switches, Server, wiring between them and etc. Intended to be used by the user.
+
+### Resource Types
+- [Connection](#connection)
+- [Server](#server)
+- [Switch](#switch)
+- [SwitchGroup](#switchgroup)
+- [SwitchProfile](#switchprofile)
+- [VLANNamespace](#vlannamespace)
+
+
+
+
+
+#### BasePortName
+
+
+
+BasePortName defines the full name of the switch port
+
+
+
+_Appears in:_
+- [ConnExternalLink](#connexternallink)
+- [ConnFabricLinkSwitch](#connfabriclinkswitch)
+- [ConnStaticExternalLinkSwitch](#connstaticexternallinkswitch)
+- [ServerToSwitchLink](#servertoswitchlink)
+- [SwitchToSwitchLink](#switchtoswitchlink)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `port` _string_ | Port defines the full name of the switch port in the format of "device/port", such as "spine-1/Ethernet1".<br />SONiC port name is used as a port name and switch name should be same as the name of the Switch object. |  |  |
+
+
+#### ConnBundled
+
+
+
+ConnBundled defines the bundled connection (port channel, single server to a single switch with multiple links)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `links` _[ServerToSwitchLink](#servertoswitchlink) array_ | Links is the list of server-to-switch links |  |  |
+| `mtu` _integer_ | MTU is the MTU to be configured on the switch port or port channel |  |  |
+
+
+#### ConnESLAG
+
+
+
+ConnESLAG defines the ESLAG connection (port channel, single server to 2-4 switches with multiple links)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `links` _[ServerToSwitchLink](#servertoswitchlink) array_ | Links is the list of server-to-switch links |  | MinItems: 2 <br /> |
+| `mtu` _integer_ | MTU is the MTU to be configured on the switch port or port channel |  |  |
+| `fallback` _boolean_ | Fallback is the optional flag that used to indicate one of the links in LACP port channel to be used as a fallback link |  |  |
+
+
+#### ConnExternal
+
+
+
+ConnExternal defines the external connection (single switch to a single external device with a single link)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `link` _[ConnExternalLink](#connexternallink)_ | Link is the external connection link |  |  |
+
+
+#### ConnExternalLink
+
+
+
+ConnExternalLink defines the external connection link
+
+
+
+_Appears in:_
+- [ConnExternal](#connexternal)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `switch` _[BasePortName](#baseportname)_ |  |  |  |
+
+
+#### ConnFabric
+
+
+
+ConnFabric defines the fabric connection (single spine to a single leaf with at least one link)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `links` _[FabricLink](#fabriclink) array_ | Links is the list of spine-to-leaf links |  | MinItems: 1 <br /> |
+
+
+#### ConnFabricLinkSwitch
+
+
+
+ConnFabricLinkSwitch defines the switch side of the fabric link
+
+
+
+_Appears in:_
+- [FabricLink](#fabriclink)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `port` _string_ | Port defines the full name of the switch port in the format of "device/port", such as "spine-1/Ethernet1".<br />SONiC port name is used as a port name and switch name should be same as the name of the Switch object. |  |  |
+| `ip` _string_ | IP is the IP address of the switch side of the fabric link (switch port configuration) |  | Pattern: `^((25[0-5]\|(2[0-4]\|1\d\|[1-9]\|)\d)\.?\b)\{4\}/([1-2]?[0-9]\|3[0-2])$` <br /> |
+
+
+#### ConnMCLAG
+
+
+
+ConnMCLAG defines the MCLAG connection (port channel, single server to pair of switches with multiple links)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `links` _[ServerToSwitchLink](#servertoswitchlink) array_ | Links is the list of server-to-switch links |  | MinItems: 2 <br /> |
+| `mtu` _integer_ | MTU is the MTU to be configured on the switch port or port channel |  |  |
+| `fallback` _boolean_ | Fallback is the optional flag that used to indicate one of the links in LACP port channel to be used as a fallback link |  |  |
+
+
+#### ConnMCLAGDomain
+
+
+
+ConnMCLAGDomain defines the MCLAG domain connection which makes two switches into a single logical switch or
+redundancy group and allows to use MCLAG connections to connect servers in a multi-homed way.
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `peerLinks` _[SwitchToSwitchLink](#switchtoswitchlink) array_ | PeerLinks is the list of peer links between the switches, used to pass server traffic between switch |  | MinItems: 1 <br /> |
+| `sessionLinks` _[SwitchToSwitchLink](#switchtoswitchlink) array_ | SessionLinks is the list of session links between the switches, used only to pass MCLAG control plane and BGP<br />traffic between switches |  | MinItems: 1 <br /> |
+
+
+#### ConnStaticExternal
+
+
+
+ConnStaticExternal defines the static external connection (single switch to a single external device with a single link)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `link` _[ConnStaticExternalLink](#connstaticexternallink)_ | Link is the static external connection link |  |  |
+| `withinVPC` _string_ | WithinVPC is the optional VPC name to provision the static external connection within the VPC VRF instead of default one to make resource available to the specific VPC |  |  |
+
+
+#### ConnStaticExternalLink
+
+
+
+ConnStaticExternalLink defines the static external connection link
+
+
+
+_Appears in:_
+- [ConnStaticExternal](#connstaticexternal)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `switch` _[ConnStaticExternalLinkSwitch](#connstaticexternallinkswitch)_ | Switch is the switch side of the static external connection link |  |  |
+
+
+#### ConnStaticExternalLinkSwitch
+
+
+
+ConnStaticExternalLinkSwitch defines the switch side of the static external connection link
+
+
+
+_Appears in:_
+- [ConnStaticExternalLink](#connstaticexternallink)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `port` _string_ | Port defines the full name of the switch port in the format of "device/port", such as "spine-1/Ethernet1".<br />SONiC port name is used as a port name and switch name should be same as the name of the Switch object. |  |  |
+| `ip` _string_ | IP is the IP address of the switch side of the static external connection link (switch port configuration) |  | Pattern: `^((25[0-5]\|(2[0-4]\|1\d\|[1-9]\|)\d)\.?\b)\{4\}/([1-2]?[0-9]\|3[0-2])$` <br /> |
+| `nextHop` _string_ | NextHop is the next hop IP address for static routes that will be created for the subnets |  | Pattern: `^((25[0-5]\|(2[0-4]\|1\d\|[1-9]\|)\d)\.?\b)\{4\}$` <br /> |
+| `subnets` _string array_ | Subnets is the list of subnets that will get static routes using the specified next hop |  |  |
+| `vlan` _integer_ | VLAN is the optional VLAN ID to be configured on the switch port |  |  |
+
+
+#### ConnUnbundled
+
+
+
+ConnUnbundled defines the unbundled connection (no port channel, single server to a single switch with a single link)
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `link` _[ServerToSwitchLink](#servertoswitchlink)_ | Link is the server-to-switch link |  |  |
+| `mtu` _integer_ | MTU is the MTU to be configured on the switch port or port channel |  |  |
+
+
+#### ConnVPCLoopback
+
+
+
+ConnVPCLoopback defines the VPC loopback connection (multiple port pairs on a single switch) that enables automated
+workaround named "VPC Loopback" that allow to avoid switch hardware limitations and traffic going through CPU in some
+cases
+
+
+
+_Appears in:_
+- [ConnectionSpec](#connectionspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `links` _[SwitchToSwitchLink](#switchtoswitchlink) array_ | Links is the list of VPC loopback links |  | MinItems: 1 <br /> |
+
+
+#### Connection
+
+
+
+Connection object represents a logical and physical connections between any devices in the Fabric (Switch, Server
+and External objects). It's needed to define all physical and logical connections between the devices in the Wiring
+Diagram. Connection type is defined by the top-level field in the ConnectionSpec. Exactly one of them could be used
+in a single Connection object.
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `wiring.githedgehog.com/v1beta1` | | |
+| `kind` _string_ | `Connection` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ConnectionSpec](#connectionspec)_ | Spec is the desired state of the Connection |  |  |
+| `status` _[ConnectionStatus](#connectionstatus)_ | Status is the observed state of the Connection |  |  |
+
+
+#### ConnectionSpec
+
+
+
+ConnectionSpec defines the desired state of Connection
+
+
+
+_Appears in:_
+- [Connection](#connection)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `unbundled` _[ConnUnbundled](#connunbundled)_ | Unbundled defines the unbundled connection (no port channel, single server to a single switch with a single link) |  |  |
+| `bundled` _[ConnBundled](#connbundled)_ | Bundled defines the bundled connection (port channel, single server to a single switch with multiple links) |  |  |
+| `mclag` _[ConnMCLAG](#connmclag)_ | MCLAG defines the MCLAG connection (port channel, single server to pair of switches with multiple links) |  |  |
+| `eslag` _[ConnESLAG](#conneslag)_ | ESLAG defines the ESLAG connection (port channel, single server to 2-4 switches with multiple links) |  |  |
+| `mclagDomain` _[ConnMCLAGDomain](#connmclagdomain)_ | MCLAGDomain defines the MCLAG domain connection which makes two switches into a single logical switch for server multi-homing |  |  |
+| `fabric` _[ConnFabric](#connfabric)_ | Fabric defines the fabric connection (single spine to a single leaf with at least one link) |  |  |
+| `vpcLoopback` _[ConnVPCLoopback](#connvpcloopback)_ | VPCLoopback defines the VPC loopback connection (multiple port pairs on a single switch) for automated workaround |  |  |
+| `external` _[ConnExternal](#connexternal)_ | External defines the external connection (single switch to a single external device with a single link) |  |  |
+| `staticExternal` _[ConnStaticExternal](#connstaticexternal)_ | StaticExternal defines the static external connection (single switch to a single external device with a single link) |  |  |
+
+
+#### ConnectionStatus
+
+
+
+ConnectionStatus defines the observed state of Connection
+
+
+
+_Appears in:_
+- [Connection](#connection)
+
+
+
+#### FabricLink
+
+
+
+FabricLink defines the fabric connection link
+
+
+
+_Appears in:_
+- [ConnFabric](#connfabric)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `spine` _[ConnFabricLinkSwitch](#connfabriclinkswitch)_ | Spine is the spine side of the fabric link |  |  |
+| `leaf` _[ConnFabricLinkSwitch](#connfabriclinkswitch)_ | Leaf is the leaf side of the fabric link |  |  |
+
+
+
+
+#### Server
+
+
+
+Server is the Schema for the servers API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `wiring.githedgehog.com/v1beta1` | | |
+| `kind` _string_ | `Server` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[ServerSpec](#serverspec)_ | Spec is desired state of the server |  |  |
+| `status` _[ServerStatus](#serverstatus)_ | Status is the observed state of the server |  |  |
+
+
+#### ServerFacingConnectionConfig
+
+
+
+ServerFacingConnectionConfig defines any server-facing connection (unbundled, bundled, mclag, etc.) configuration
+
+
+
+_Appears in:_
+- [ConnBundled](#connbundled)
+- [ConnESLAG](#conneslag)
+- [ConnMCLAG](#connmclag)
+- [ConnUnbundled](#connunbundled)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `mtu` _integer_ | MTU is the MTU to be configured on the switch port or port channel |  |  |
+
+
+#### ServerSpec
+
+
+
+ServerSpec defines the desired state of Server
+
+
+
+_Appears in:_
+- [Server](#server)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `description` _string_ | Description is a description of the server |  |  |
+| `profile` _string_ | Profile is the profile of the server, name of the ServerProfile object to be used for this server, currently not used by the Fabric |  |  |
+
+
+#### ServerStatus
+
+
+
+ServerStatus defines the observed state of Server
+
+
+
+_Appears in:_
+- [Server](#server)
+
+
+
+#### ServerToSwitchLink
+
+
+
+ServerToSwitchLink defines the server-to-switch link
+
+
+
+_Appears in:_
+- [ConnBundled](#connbundled)
+- [ConnESLAG](#conneslag)
+- [ConnMCLAG](#connmclag)
+- [ConnUnbundled](#connunbundled)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `server` _[BasePortName](#baseportname)_ | Server is the server side of the connection |  |  |
+| `switch` _[BasePortName](#baseportname)_ | Switch is the switch side of the connection |  |  |
+
+
+#### Switch
+
+
+
+Switch is the Schema for the switches API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `wiring.githedgehog.com/v1beta1` | | |
+| `kind` _string_ | `Switch` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[SwitchSpec](#switchspec)_ | Spec is desired state of the switch |  |  |
+| `status` _[SwitchStatus](#switchstatus)_ | Status is the observed state of the switch |  |  |
+
+
+#### SwitchBoot
+
+
+
+
+
+
+
+_Appears in:_
+- [SwitchSpec](#switchspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `serial` _string_ | Identify switch by serial number |  |  |
+| `mac` _string_ | Identify switch by MAC address of the management port |  |  |
+
+
+#### SwitchGroup
+
+
+
+SwitchGroup is the marker API object to group switches together, switch can belong to multiple groups
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `wiring.githedgehog.com/v1beta1` | | |
+| `kind` _string_ | `SwitchGroup` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[SwitchGroupSpec](#switchgroupspec)_ | Spec is the desired state of the SwitchGroup |  |  |
+| `status` _[SwitchGroupStatus](#switchgroupstatus)_ | Status is the observed state of the SwitchGroup |  |  |
+
+
+#### SwitchGroupSpec
+
+
+
+SwitchGroupSpec defines the desired state of SwitchGroup
+
+
+
+_Appears in:_
+- [SwitchGroup](#switchgroup)
+
+
+
+#### SwitchGroupStatus
+
+
+
+SwitchGroupStatus defines the observed state of SwitchGroup
+
+
+
+_Appears in:_
+- [SwitchGroup](#switchgroup)
+
+
+
+#### SwitchProfile
+
+
+
+SwitchProfile represents switch capabilities and configuration
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `wiring.githedgehog.com/v1beta1` | | |
+| `kind` _string_ | `SwitchProfile` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[SwitchProfileSpec](#switchprofilespec)_ |  |  |  |
+| `status` _[SwitchProfileStatus](#switchprofilestatus)_ |  |  |  |
+
+
+#### SwitchProfileConfig
+
+
+
+Defines switch-specific configuration options
+
+
+
+_Appears in:_
+- [SwitchProfileSpec](#switchprofilespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `maxPathsEBGP` _integer_ | MaxPathsIBGP defines the maximum number of IBGP paths to be configured |  |  |
+
+
+#### SwitchProfileFeatures
+
+
+
+Defines features supported by a specific switch which is later used for roles and Fabric API features usage validation
+
+
+
+_Appears in:_
+- [SwitchProfileSpec](#switchprofilespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `subinterfaces` _boolean_ | Subinterfaces defines if switch supports subinterfaces |  |  |
+| `vxlan` _boolean_ | VXLAN defines if switch supports VXLANs |  |  |
+| `acls` _boolean_ | ACLs defines if switch supports ACLs |  |  |
+
+
+#### SwitchProfilePort
+
+
+
+Defines a switch port configuration
+Only one of Profile or Group can be set
+
+
+
+_Appears in:_
+- [SwitchProfileSpec](#switchprofilespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nos` _string_ | NOSName defines how port is named in the NOS |  |  |
+| `baseNOSName` _string_ | BaseNOSName defines the base NOS name that could be used together with the profile to generate the actual NOS name (e.g. breakouts) |  |  |
+| `label` _string_ | Label defines the physical port label you can see on the actual switch |  |  |
+| `group` _string_ | If port isn't directly manageable, group defines the group it belongs to, exclusive with profile |  |  |
+| `profile` _string_ | If port is directly configurable, profile defines the profile it belongs to, exclusive with group |  |  |
+| `management` _boolean_ | Management defines if port is a management port, it's a special case and it can't have a group or profile |  |  |
+| `oniePortName` _string_ | OniePortName defines the ONIE port name for management ports only |  |  |
+
+
+#### SwitchProfilePortGroup
+
+
+
+Defines a switch port group configuration
+
+
+
+_Appears in:_
+- [SwitchProfileSpec](#switchprofilespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `nos` _string_ | NOSName defines how group is named in the NOS |  |  |
+| `profile` _string_ | Profile defines the possible configuration profile for the group, could only have speed profile |  |  |
+
+
+#### SwitchProfilePortProfile
+
+
+
+Defines a switch port profile configuration
+
+
+
+_Appears in:_
+- [SwitchProfileSpec](#switchprofilespec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `speed` _[SwitchProfilePortProfileSpeed](#switchprofileportprofilespeed)_ | Speed defines the speed configuration for the profile, exclusive with breakout |  |  |
+| `breakout` _[SwitchProfilePortProfileBreakout](#switchprofileportprofilebreakout)_ | Breakout defines the breakout configuration for the profile, exclusive with speed |  |  |
+| `autoNegAllowed` _boolean_ | AutoNegAllowed defines if configuring auto-negotiation is allowed for the port |  |  |
+| `autoNegDefault` _boolean_ | AutoNegDefault defines the default auto-negotiation state for the port |  |  |
+
+
+#### SwitchProfilePortProfileBreakout
+
+
+
+Defines a switch port profile breakout configuration
+
+
+
+_Appears in:_
+- [SwitchProfilePortProfile](#switchprofileportprofile)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `default` _string_ | Default defines the default breakout mode for the profile |  |  |
+| `supported` _object (keys:string, values:[SwitchProfilePortProfileBreakoutMode](#switchprofileportprofilebreakoutmode))_ | Supported defines the supported breakout modes for the profile with the NOS name offsets |  |  |
+
+
+#### SwitchProfilePortProfileBreakoutMode
+
+
+
+Defines a switch port profile breakout mode configuration
+
+
+
+_Appears in:_
+- [SwitchProfilePortProfileBreakout](#switchprofileportprofilebreakout)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `offsets` _string array_ | Offsets defines the breakout NOS port name offset from the port NOS Name for each breakout mode |  |  |
+
+
+#### SwitchProfilePortProfileSpeed
+
+
+
+Defines a switch port profile speed configuration
+
+
+
+_Appears in:_
+- [SwitchProfilePortProfile](#switchprofileportprofile)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `default` _string_ | Default defines the default speed for the profile |  |  |
+| `supported` _string array_ | Supported defines the supported speeds for the profile |  |  |
+
+
+
+
+#### SwitchProfileSpec
+
+
+
+SwitchProfileSpec defines the desired state of SwitchProfile
+
+
+
+_Appears in:_
+- [SwitchProfile](#switchprofile)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `displayName` _string_ | DisplayName defines the human-readable name of the switch |  |  |
+| `otherNames` _string array_ | OtherNames defines alternative names for the switch |  |  |
+| `features` _[SwitchProfileFeatures](#switchprofilefeatures)_ | Features defines the features supported by the switch |  |  |
+| `config` _[SwitchProfileConfig](#switchprofileconfig)_ | Config defines the switch-specific configuration options |  |  |
+| `ports` _object (keys:string, values:[SwitchProfilePort](#switchprofileport))_ | Ports defines the switch port configuration |  |  |
+| `portGroups` _object (keys:string, values:[SwitchProfilePortGroup](#switchprofileportgroup))_ | PortGroups defines the switch port group configuration |  |  |
+| `portProfiles` _object (keys:string, values:[SwitchProfilePortProfile](#switchprofileportprofile))_ | PortProfiles defines the switch port profile configuration |  |  |
+| `nosType` _[NOSType](#nostype)_ | NOSType defines the NOS type to be used for the switch |  |  |
+| `platform` _string_ | Platform is what expected to be request by ONIE and displayed in the NOS |  |  |
+
+
+#### SwitchProfileStatus
+
+
+
+SwitchProfileStatus defines the observed state of SwitchProfile
+
+
+
+_Appears in:_
+- [SwitchProfile](#switchprofile)
+
+
+
+#### SwitchRedundancy
+
+
+
+SwitchRedundancy is the switch redundancy configuration which includes name of the redundancy group switch belongs
+to and its type, used both for MCLAG and ESLAG connections. It defines how redundancy will be configured and handled
+on the switch as well as which connection types will be available. If not specified, switch will not be part of any
+redundancy group. If name isn't empty, type must be specified as well and name should be the same as one of the
+SwitchGroup objects.
+
+
+
+_Appears in:_
+- [SwitchSpec](#switchspec)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `group` _string_ | Group is the name of the redundancy group switch belongs to |  |  |
+| `type` _[RedundancyType](#redundancytype)_ | Type is the type of the redundancy group, could be mclag or eslag |  |  |
+
+
+#### SwitchRole
+
+_Underlying type:_ _string_
+
+SwitchRole is the role of the switch, could be spine, server-leaf or border-leaf or mixed-leaf
+
+_Validation:_
+- Enum: [spine server-leaf border-leaf mixed-leaf virtual-edge]
+
+_Appears in:_
+- [SwitchSpec](#switchspec)
+
+| Field | Description |
+| --- | --- |
+| `spine` |  |
+| `server-leaf` |  |
+| `border-leaf` |  |
+| `mixed-leaf` |  |
+| `virtual-edge` |  |
+
+
+#### SwitchSpec
+
+
+
+SwitchSpec defines the desired state of Switch
+
+
+
+_Appears in:_
+- [Switch](#switch)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `role` _[SwitchRole](#switchrole)_ | Role is the role of the switch, could be spine, server-leaf or border-leaf or mixed-leaf |  | Enum: [spine server-leaf border-leaf mixed-leaf virtual-edge] <br />Required: \{\} <br /> |
+| `description` _string_ | Description is a description of the switch |  |  |
+| `profile` _string_ | Profile is the profile of the switch, name of the SwitchProfile object to be used for this switch, currently not used by the Fabric |  |  |
+| `groups` _string array_ | Groups is a list of switch groups the switch belongs to |  |  |
+| `redundancy` _[SwitchRedundancy](#switchredundancy)_ | Redundancy is the switch redundancy configuration including name of the redundancy group switch belongs to and its type, used both for MCLAG and ESLAG connections |  |  |
+| `vlanNamespaces` _string array_ | VLANNamespaces is a list of VLAN namespaces the switch is part of, their VLAN ranges could not overlap |  |  |
+| `asn` _integer_ | ASN is the ASN of the switch |  |  |
+| `ip` _string_ | IP is the IP of the switch that could be used to access it from other switches and control nodes in the Fabric |  |  |
+| `vtepIP` _string_ | VTEPIP is the VTEP IP of the switch |  |  |
+| `protocolIP` _string_ | ProtocolIP is used as BGP Router ID for switch configuration |  |  |
+| `portGroupSpeeds` _object (keys:string, values:string)_ | PortGroupSpeeds is a map of port group speeds, key is the port group name, value is the speed, such as '"2": 10G' |  |  |
+| `portSpeeds` _object (keys:string, values:string)_ | PortSpeeds is a map of port speeds, key is the port name, value is the speed |  |  |
+| `portBreakouts` _object (keys:string, values:string)_ | PortBreakouts is a map of port breakouts, key is the port name, value is the breakout configuration, such as "1/55: 4x25G" |  |  |
+| `portAutoNegs` _object (keys:string, values:boolean)_ | PortAutoNegs is a map of port auto negotiation, key is the port name, value is true or false |  |  |
+| `boot` _[SwitchBoot](#switchboot)_ | Boot is the boot/provisioning information of the switch |  |  |
+
+
+#### SwitchStatus
+
+
+
+SwitchStatus defines the observed state of Switch
+
+
+
+_Appears in:_
+- [Switch](#switch)
+
+
+
+#### SwitchToSwitchLink
+
+
+
+SwitchToSwitchLink defines the switch-to-switch link
+
+
+
+_Appears in:_
+- [ConnMCLAGDomain](#connmclagdomain)
+- [ConnVPCLoopback](#connvpcloopback)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `switch1` _[BasePortName](#baseportname)_ | Switch1 is the first switch side of the connection |  |  |
+| `switch2` _[BasePortName](#baseportname)_ | Switch2 is the second switch side of the connection |  |  |
+
+
+#### VLANNamespace
+
+
+
+VLANNamespace is the Schema for the vlannamespaces API
+
+
+
+
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `apiVersion` _string_ | `wiring.githedgehog.com/v1beta1` | | |
+| `kind` _string_ | `VLANNamespace` | | |
+| `metadata` _[ObjectMeta](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.31/#objectmeta-v1-meta)_ | Refer to Kubernetes API documentation for fields of `metadata`. |  |  |
+| `spec` _[VLANNamespaceSpec](#vlannamespacespec)_ | Spec is the desired state of the VLANNamespace |  |  |
+| `status` _[VLANNamespaceStatus](#vlannamespacestatus)_ | Status is the observed state of the VLANNamespace |  |  |
+
+
+#### VLANNamespaceSpec
+
+
+
+VLANNamespaceSpec defines the desired state of VLANNamespace
+
+
+
+_Appears in:_
+- [VLANNamespace](#vlannamespace)
+
+| Field | Description | Default | Validation |
+| --- | --- | --- | --- |
+| `ranges` _VLANRange array_ | Ranges is a list of VLAN ranges to be used in this namespace, couldn't overlap between each other and with Fabric reserved VLAN ranges |  | MaxItems: 20 <br />MinItems: 1 <br /> |
+
+
+#### VLANNamespaceStatus
+
+
+
+VLANNamespaceStatus defines the observed state of VLANNamespace
+
+
+
+_Appears in:_
+- [VLANNamespace](#vlannamespace)
+

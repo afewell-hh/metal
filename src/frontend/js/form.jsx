@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateConfig, generateSwitchName } from './configGenerator';
 import { SwitchProfileManager } from './switchProfileManager';
+import { ConfigEditor } from './configEditor';
 import jsyaml from 'js-yaml';
 import { PortAllocationRules } from './portAllocationRules.js';
 
@@ -44,7 +45,9 @@ const DEFAULT_FORM_DATA = {
 export function ConfigForm() {
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
   const [showSerialInput, setShowSerialInput] = useState(false);
+  const [showConfigEditor, setShowConfigEditor] = useState(false);
   const [generatedConfig, setGeneratedConfig] = useState(null);
+  const [editedConfig, setEditedConfig] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [supportedSwitches, setSupportedSwitches] = useState([]);
@@ -111,15 +114,32 @@ export function ConfigForm() {
       return;
     }
 
-    try {
-      console.log('Form Data: ', formData);
-      const config = await generateConfig(formData);
-      console.log('Generated Config: ', config);
-      setGeneratedConfig(config);
-    } catch (error) {
-      console.error('Failed to generate config:', error);
-      setError(error.message);
+    if (!showConfigEditor) {
+      try {
+        const config = await generateConfig(formData);
+        setGeneratedConfig(config);
+        setShowConfigEditor(true);
+      } catch (error) {
+        console.error('Failed to generate config:', error);
+        setError(error.message);
+      }
+      return;
     }
+  };
+
+  const handleSaveEdits = (editedConfigs) => {
+    if (editedConfigs === null) {
+      // User clicked back button
+      setShowConfigEditor(false);
+      return;
+    }
+    setEditedConfig(editedConfigs);
+    setShowConfigEditor(false);
+  };
+
+  const handleBackToForm = () => {
+    setShowSerialInput(false);
+    // Preserve formData state
   };
 
   if (isLoading) {
@@ -130,26 +150,37 @@ export function ConfigForm() {
     return <div className="error">{error}</div>;
   }
 
-  if (showSerialInput && generatedConfig) {
+  if (showConfigEditor && generatedConfig) {
+    return (
+      <ConfigEditor
+        configs={generatedConfig}
+        onSave={handleSaveEdits}
+      />
+    );
+  }
+
+  if (editedConfig) {
     // Convert array of k8s objects directly to YAML
-    const yamlConfigs = generatedConfig.map(config => 
+    const yamlConfigs = editedConfig.map(config => 
       jsyaml.dump(config)
     ).join('---\n');
 
     return (
       <div className="generated-config">
-        <h2>Generated Configuration</h2>
+        <h2>Final Configuration</h2>
         <div className="config-section">
           <h3>Configuration Files</h3>
           <pre>{yamlConfigs}</pre>
         </div>
         <div className="button-group">
-          <button onClick={() => {
-            setShowSerialInput(false);
-            setGeneratedConfig(null);
-            setFormData(DEFAULT_FORM_DATA);
-          }} className="back-button">
-            Start Over
+          <button 
+            onClick={() => {
+              setShowConfigEditor(true);
+              setEditedConfig(null);
+            }} 
+            className="back-button"
+          >
+            Back to Edit Configuration
           </button>
           <button onClick={() => {
             const blob = new Blob([yamlConfigs], { type: 'text/yaml' });
@@ -169,7 +200,251 @@ export function ConfigForm() {
     );
   }
 
-  if (showSerialInput) {
+  // Initial form for switch counts and models
+  if (!showSerialInput) {
+    return (
+      <form onSubmit={handleSubmit}>
+        <h2>Step 1: Basic Configuration</h2>
+        
+        {/* VLAN Range */}
+        <div>
+          <h3>VLAN Range</h3>
+          <input
+            type="number"
+            value={formData.vlanNamespace.ranges[0].from}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              vlanNamespace: {
+                ranges: [{
+                  ...prev.vlanNamespace.ranges[0],
+                  from: parseInt(e.target.value)
+                }]
+              }
+            }))}
+          />
+          <input
+            type="number"
+            value={formData.vlanNamespace.ranges[0].to}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              vlanNamespace: {
+                ranges: [{
+                  ...prev.vlanNamespace.ranges[0],
+                  to: parseInt(e.target.value)
+                }]
+              }
+            }))}
+          />
+        </div>
+
+        {/* IPv4 Subnet */}
+        <div>
+          <h3>IPv4 Subnet</h3>
+          <input
+            type="text"
+            value={formData.ipv4Namespaces[0].subnets[0]}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              ipv4Namespaces: [{
+                ...prev.ipv4Namespaces[0],
+                subnets: [e.target.value]
+              }]
+            }))}
+          />
+        </div>
+
+        {/* Spine Configuration */}
+        <div>
+          <h3>Spine Configuration</h3>
+          <label>Model:</label>
+          <select
+            value={formData.topology.spines.model}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                spines: {
+                  ...prev.topology.spines,
+                  model: e.target.value
+                }
+              }
+            }))}
+          >
+            {supportedSwitches.map(model => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+          <label>Count:</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.topology.spines.count}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                spines: {
+                  ...prev.topology.spines,
+                  count: parseInt(e.target.value)
+                }
+              }
+            }))}
+          />
+          <div>
+            <label>Fabric Port Breakout:</label>
+            <select
+              value={formData.topology.spines.fabricPortConfig.breakout || ''}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                topology: {
+                  ...prev.topology,
+                  spines: {
+                    ...prev.topology.spines,
+                    fabricPortConfig: {
+                      breakout: e.target.value || null
+                    }
+                  }
+                }
+              }))}
+            >
+              <option value="">Select Breakout</option>
+              <option value="4x25G">4x25G</option>
+              <option value="2x50G">2x50G</option>
+              <option value="1x100G">1x100G</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Leaf Configuration */}
+        <div>
+          <h3>Leaf Configuration</h3>
+          <label>Model:</label>
+          <select
+            value={formData.topology.leaves.model}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                leaves: {
+                  ...prev.topology.leaves,
+                  model: e.target.value
+                }
+              }
+            }))}
+          >
+            {supportedSwitches.map(model => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+          <label>Count:</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.topology.leaves.count}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                leaves: {
+                  ...prev.topology.leaves,
+                  count: parseInt(e.target.value)
+                }
+              }
+            }))}
+          />
+          <div>
+            <label>Fabric Ports Per Leaf:</label>
+            <input
+              type="number"
+              min="1"
+              value={formData.topology.leaves.fabricPortsPerLeaf}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                topology: {
+                  ...prev.topology,
+                  leaves: {
+                    ...prev.topology.leaves,
+                    fabricPortsPerLeaf: parseInt(e.target.value)
+                  }
+                }
+              }))}
+            />
+          </div>
+          <div>
+            <label>Fabric Port Breakout:</label>
+            <select
+              value={formData.topology.leaves.fabricPortConfig.breakout || ''}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                topology: {
+                  ...prev.topology,
+                  leaves: {
+                    ...prev.topology.leaves,
+                    fabricPortConfig: {
+                      breakout: e.target.value || null
+                    }
+                  }
+                }
+              }))}
+            >
+              <option value="">Select Breakout</option>
+              <option value="4x25G">4x25G</option>
+              <option value="2x50G">2x50G</option>
+              <option value="1x100G">1x100G</option>
+            </select>
+          </div>
+          <div>
+            <label>Total Server Ports Needed:</label>
+            <input
+              type="number"
+              min="1"
+              value={formData.topology.leaves.totalServerPorts}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                topology: {
+                  ...prev.topology,
+                  leaves: {
+                    ...prev.topology.leaves,
+                    totalServerPorts: parseInt(e.target.value)
+                  }
+                }
+              }))}
+            />
+          </div>
+          <div>
+            <label>Server Port Breakout:</label>
+            <select
+              value={formData.topology.leaves.serverPortConfig.breakout || ''}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                topology: {
+                  ...prev.topology,
+                  leaves: {
+                    ...prev.topology.leaves,
+                    serverPortConfig: {
+                      breakout: e.target.value || null
+                    }
+                  }
+                }
+              }))}
+            >
+              <option value="">Select Breakout</option>
+              <option value="fixed">Fixed (No Breakout)</option>
+              <option value="4x10G">4x10G</option>
+              <option value="4x25G">4x25G</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="button-group">
+          <button type="submit">Continue to Serial Numbers</button>
+        </div>
+      </form>
+    );
+  }
+
+  // Serial number input form
+  if (showSerialInput && !showConfigEditor && !editedConfig) {
     return (
       <form onSubmit={handleSubmit}>
         <h2>Step 2: Enter Switch Serial Numbers</h2>
@@ -191,246 +466,17 @@ export function ConfigForm() {
           </div>
         ))}
 
-        <button type="submit">Generate Configuration</button>
+        <div className="button-group">
+          <button 
+            type="button" 
+            onClick={handleBackToForm}
+            className="back-button"
+          >
+            Back to Switch Configuration
+          </button>
+          <button type="submit">Generate Configuration</button>
+        </div>
       </form>
     );
   }
-
-  return (
-    <form onSubmit={handleSubmit}>
-      <h2>Step 1: Basic Configuration</h2>
-      
-      {/* VLAN Range */}
-      <div>
-        <h3>VLAN Range</h3>
-        <input
-          type="number"
-          value={formData.vlanNamespace.ranges[0].from}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            vlanNamespace: {
-              ranges: [{
-                ...prev.vlanNamespace.ranges[0],
-                from: parseInt(e.target.value)
-              }]
-            }
-          }))}
-        />
-        <input
-          type="number"
-          value={formData.vlanNamespace.ranges[0].to}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            vlanNamespace: {
-              ranges: [{
-                ...prev.vlanNamespace.ranges[0],
-                to: parseInt(e.target.value)
-              }]
-            }
-          }))}
-        />
-      </div>
-
-      {/* IPv4 Subnet */}
-      <div>
-        <h3>IPv4 Subnet</h3>
-        <input
-          type="text"
-          value={formData.ipv4Namespaces[0].subnets[0]}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            ipv4Namespaces: [{
-              ...prev.ipv4Namespaces[0],
-              subnets: [e.target.value]
-            }]
-          }))}
-        />
-      </div>
-
-      {/* Spine Configuration */}
-      <div>
-        <h3>Spine Configuration</h3>
-        <label>Model:</label>
-        <select
-          value={formData.topology.spines.model}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              spines: {
-                ...prev.topology.spines,
-                model: e.target.value
-              }
-            }
-          }))}
-        >
-          {supportedSwitches.map(model => (
-            <option key={model} value={model}>{model}</option>
-          ))}
-        </select>
-        <label>Count:</label>
-        <input
-          type="number"
-          min="1"
-          value={formData.topology.spines.count}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              spines: {
-                ...prev.topology.spines,
-                count: parseInt(e.target.value)
-              }
-            }
-          }))}
-        />
-        <div>
-          <label>Fabric Port Breakout:</label>
-          <select
-            value={formData.topology.spines.fabricPortConfig.breakout || ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                spines: {
-                  ...prev.topology.spines,
-                  fabricPortConfig: {
-                    breakout: e.target.value || null
-                  }
-                }
-              }
-            }))}
-          >
-            <option value="">Select Breakout</option>
-            <option value="4x25G">4x25G</option>
-            <option value="2x50G">2x50G</option>
-            <option value="1x100G">1x100G</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Leaf Configuration */}
-      <div>
-        <h3>Leaf Configuration</h3>
-        <label>Model:</label>
-        <select
-          value={formData.topology.leaves.model}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              leaves: {
-                ...prev.topology.leaves,
-                model: e.target.value
-              }
-            }
-          }))}
-        >
-          {supportedSwitches.map(model => (
-            <option key={model} value={model}>{model}</option>
-          ))}
-        </select>
-        <label>Count:</label>
-        <input
-          type="number"
-          min="1"
-          value={formData.topology.leaves.count}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              leaves: {
-                ...prev.topology.leaves,
-                count: parseInt(e.target.value)
-              }
-            }
-          }))}
-        />
-        <div>
-          <label>Fabric Ports Per Leaf:</label>
-          <input
-            type="number"
-            min="1"
-            value={formData.topology.leaves.fabricPortsPerLeaf}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  fabricPortsPerLeaf: parseInt(e.target.value)
-                }
-              }
-            }))}
-          />
-        </div>
-        <div>
-          <label>Fabric Port Breakout:</label>
-          <select
-            value={formData.topology.leaves.fabricPortConfig.breakout || ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  fabricPortConfig: {
-                    breakout: e.target.value || null
-                  }
-                }
-              }
-            }))}
-          >
-            <option value="">Select Breakout</option>
-            <option value="4x25G">4x25G</option>
-            <option value="2x50G">2x50G</option>
-            <option value="1x100G">1x100G</option>
-          </select>
-        </div>
-        <div>
-          <label>Total Server Ports Needed:</label>
-          <input
-            type="number"
-            min="1"
-            value={formData.topology.leaves.totalServerPorts}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  totalServerPorts: parseInt(e.target.value)
-                }
-              }
-            }))}
-          />
-        </div>
-        <div>
-          <label>Server Port Breakout:</label>
-          <select
-            value={formData.topology.leaves.serverPortConfig.breakout || ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  serverPortConfig: {
-                    breakout: e.target.value || null
-                  }
-                }
-              }
-            }))}
-          >
-            <option value="">Select Breakout</option>
-            <option value="fixed">Fixed (No Breakout)</option>
-            <option value="4x10G">4x10G</option>
-            <option value="4x25G">4x25G</option>
-          </select>
-        </div>
-      </div>
-
-      <button type="submit">Next: Enter Switch Serials</button>
-    </form>
-  );
 }
