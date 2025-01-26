@@ -330,4 +330,109 @@ export class PortAssignmentManager {
             physicalPorts: uniquePorts.size
         };
     }
+
+    // Generate network configuration for a switch
+    generateNetworkConfig(role, index) {
+        // Generate unique ASN and IPs for each switch
+        // Using private ASN range 64512-65534 for private use
+        const baseAsn = role === 'spine' ? 64512 : 64768;
+        const asn = baseAsn + index;
+
+        // Using 172.16.0.0/12 for management IPs
+        const managementOctet = role === 'spine' ? 1 : 2;
+        const ip = `172.16.${managementOctet}.${index + 1}`;
+
+        // Using 172.20.0.0/12 for VTEP IPs
+        const vtepOctet = role === 'spine' ? 1 : 2;
+        const vtepIP = `172.20.${vtepOctet}.${index + 1}`;
+
+        // Using 172.24.0.0/12 for protocol IPs (BGP Router ID)
+        const protocolOctet = role === 'spine' ? 1 : 2;
+        const protocolIP = `172.24.${protocolOctet}.${index + 1}`;
+
+        return {
+            asn,
+            ip,
+            vtepIP,
+            protocolIP
+        };
+    }
+
+    async validateAndAssignPorts(formData) {
+        // Extract topology data
+        const {
+            model: leafModel,
+            count: numLeafSwitches,
+            fabricPortsPerLeaf: uplinksPerLeaf,
+            totalServerPorts
+        } = formData.topology.leaves;
+
+        const {
+            model: spineModel,
+            count: numSpineSwitches
+        } = formData.topology.spines;
+
+        // Validate the fabric design
+        const validation = await this.validateFabricDesign({
+            leafSwitches: numLeafSwitches,
+            spineSwitches: numSpineSwitches,
+            uplinksPerLeaf,
+            totalServerPorts,
+            leafModel,
+            spineModel
+        });
+
+        if (!validation.isValid) {
+            throw new Error(`Invalid fabric design: ${validation.errors.join(', ')}`);
+        }
+
+        // Generate configurations
+        const configs = {
+            spines: [],
+            leaves: []
+        };
+
+        // Configure spine switches
+        for (let i = 0; i < numSpineSwitches; i++) {
+            const networkConfig = this.generateNetworkConfig('spine', i);
+            configs.spines.push({
+                ...networkConfig,
+                portGroupSpeeds: {
+                    "1": "100G"  // Default spine ports to 100G
+                },
+                portBreakouts: {},  // No breakouts by default for spine switches
+                ports: {
+                    fabric: Array(uplinksPerLeaf * numLeafSwitches).fill(null).map((_, j) => ({
+                        id: `${j + 1}`,
+                        speed: "100G"
+                    }))
+                }
+            });
+        }
+
+        // Configure leaf switches
+        for (let i = 0; i < numLeafSwitches; i++) {
+            const networkConfig = this.generateNetworkConfig('leaf', i);
+            configs.leaves.push({
+                ...networkConfig,
+                portGroupSpeeds: {
+                    "1": "100G",  // Fabric ports
+                    "2": "25G"    // Server ports
+                },
+                portBreakouts: {},  // Add breakouts if needed
+                ports: {
+                    fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => ({
+                        id: `${j + 49}`,  // Starting from port 49 for fabric ports
+                        speed: "100G"
+                    })),
+                    server: Array(totalServerPorts).fill(null).map((_, j) => ({
+                        id: `${j + 1}`,  // Starting from port 1 for server ports
+                        speed: "25G"
+                    }))
+                }
+            });
+        }
+
+        return { configs };
+    }
 }
