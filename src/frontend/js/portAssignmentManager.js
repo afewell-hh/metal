@@ -359,22 +359,15 @@ export class PortAssignmentManager {
     }
 
     async validateAndAssignPorts(formData) {
-        // Extract topology data
-        const {
-            model: leafModel,
-            count: numLeafSwitches,
-            fabricPortsPerLeaf: uplinksPerLeaf,
-            totalServerPorts
-        } = formData.topology.leaves;
-
-        const {
-            model: spineModel,
-            count: numSpineSwitches
-        } = formData.topology.spines;
+        // Extract and normalize values from form data
+        const numLeafSwitches = parseInt(formData.leafCount, 10);
+        const numSpineSwitches = parseInt(formData.topology.spines.count, 10);
+        const uplinksPerLeaf = parseInt(formData.topology.leaves.fabricPortsPerLeaf, 10);
+        const totalServerPorts = parseInt(formData.serverCount, 10);
 
         // Normalize model names
-        const normalizedLeafModel = leafModel.replace(/-/g, '_');
-        const normalizedSpineModel = spineModel.replace(/-/g, '_');
+        const normalizedLeafModel = formData.topology.leaves.model.toLowerCase().replace(/-/g, '_');
+        const normalizedSpineModel = formData.topology.spines.model.toLowerCase().replace(/-/g, '_');
 
         // Validate the fabric design
         const validation = await this.validateFabricDesign({
@@ -419,7 +412,7 @@ export class PortAssignmentManager {
                         return {
                             id: `${portNumber}`
                         };
-                    }).filter(port => port !== null) // Remove null entries
+                    }).filter(Boolean)  // Remove null entries
                 }
             });
         }

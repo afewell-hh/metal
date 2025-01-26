@@ -10,6 +10,12 @@
 - Port naming and assignment with proper validation
 - Switch name generation with vendor normalization
 - Network configuration field generation
+- Server port configuration and assignment:
+  * Port profile analysis for server port identification
+  * Breakout mode validation and support
+  * Even distribution across leaf switches
+  * Port naming with breakout subports
+  * Port availability tracking per switch
 
 ### Form Components
 - Multi-step form workflow:
@@ -156,6 +162,65 @@
   }
   ```
 
+### PortProfileAnalyzer
+- Analyzes switch profiles for port capabilities
+- Identifies server and fabric ports
+- Validates breakout mode support
+- Key methods:
+  ```javascript
+  class PortProfileAnalyzer {
+    // Get all available server ports
+    getServerPorts() {
+      // Returns array of ports with profile info
+      return [{
+        name: string,          // Port name (e.g., "Ethernet1")
+        profile: Object,       // Port profile with speed and breakout info
+        portConfig: Object     // Port-specific configuration
+      }];
+    }
+
+    // Get breakout capabilities for a port
+    getBreakoutInfo(portName) {
+      // Returns breakout mode info
+      return {
+        isFixed: boolean,           // True if port doesn't support breakout
+        breakoutModes: string[],    // Supported breakout modes
+        defaultMode: string         // Default breakout mode
+      };
+    }
+
+    // Get next available server port
+    getNextAvailablePort(usedPorts, breakoutMode) {
+      // Returns port name or throws if none available
+      return string;
+    }
+
+    // Get proper port name with breakout
+    getPortName(basePort, breakoutMode, subPort) {
+      // Returns formatted port name (e.g., "Ethernet1/1" for breakout)
+      return string;
+    }
+  }
+  ```
+
+### ConnectionDistributor
+- Manages server connection distribution
+- Handles different connection types:
+  * Single connections
+  * LAG bundles
+  * MCLAG configurations
+  * ESLAG setups
+- Key methods:
+  ```javascript
+  class ConnectionDistributor {
+    // Get leaf switches for server connections
+    getLeafSwitchesForServer(configType, connectionsPerServer, startIndex) {
+      // Returns array of leaf switch names
+      return string[];
+    }
+  }
+  ```
+
 ### ConfigGenerator
 - Generates K8s objects
 - Handles port distribution
@@ -200,6 +265,32 @@
   ipv4Namespaces: [{
     subnets: string[]
   }]
+}
+```
+
+### Server Port Configuration
+```javascript
+{
+  serverConfig: {
+    serverConfigType: string,     // 'single', 'lag', 'mclag', 'eslag'
+    connectionsPerServer: number, // Number of connections per server
+    breakoutType: string,         // 'Fixed', '1x25G', '4x25G', etc.
+    serverCount: number          // Total number of servers to connect
+  }
+}
+```
+
+### Port Assignment State
+```javascript
+{
+  usedPorts: {
+    [switchName: string]: string[]  // Array of used port names per switch
+  },
+  portAssignments: {
+    [serverName: string]: {
+      [leafName: string]: string    // Port name assigned on each leaf
+    }
+  }
 }
 ```
 

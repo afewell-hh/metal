@@ -1,10 +1,16 @@
 import { PortAssignmentManager } from './portAssignmentManager';
 import { SwitchProfileManager } from './switchProfileManager'; // Import SwitchProfileManager
+import { PortProfileAnalyzer } from './portProfileAnalyzer';
+import { ConnectionDistributor } from './connectionDistributor';
+import { ServerConnectionGenerator } from './serverConnectionGenerator';
 
 class ConfigGenerator {
     constructor(switchProfileManager, portRules) {
-        this.switchProfileManager = switchProfileManager;
+        if (!switchProfileManager || !portRules) {
+            throw new Error('ConfigGenerator requires switchProfileManager and portRules');
+        }
         this.portAssignmentManager = new PortAssignmentManager(switchProfileManager, portRules);
+        this.switchProfileManager = switchProfileManager;
     }
 
     /**
@@ -147,9 +153,49 @@ class ConfigGenerator {
         return connections;
     }
 
-    async generateConfig(formData) {
-        console.log('Received form data:', formData);
+    // Add server distribution helper functions
+    generateServerName(index) {
+        return `server-${index + 1}`;
+    }
 
+    generateSwitchName(model, index) {
+        const role = model.toLowerCase().includes('spine') ? 'spine' : 'leaf';
+        return `${role}-${index + 1}`;
+    }
+
+    distributeServersAcrossLeaves(serverCount, leafCount) {
+        if (serverCount <= 0) throw new Error('Server count must be positive');
+        if (leafCount <= 0) throw new Error('Leaf count must be positive');
+
+        // Calculate base number of servers per leaf and remainder
+        const baseServersPerLeaf = Math.floor(serverCount / leafCount);
+        const remainingServers = serverCount % leafCount;
+        
+        // Create distribution map
+        const distribution = {};
+        let currentServer = 0;
+        
+        for (let leafIndex = 0; leafIndex < leafCount; leafIndex++) {
+            const leafName = `leaf-${leafIndex + 1}`;
+            // Add one extra server to some leaves if we have remainders
+            const serversForThisLeaf = leafIndex < remainingServers ? 
+              baseServersPerLeaf + 1 : baseServersPerLeaf;
+            
+            distribution[leafName] = [];
+            for (let i = 0; i < serversForThisLeaf; i++) {
+                distribution[leafName].push(`server-${currentServer + 1}`);
+                currentServer++;
+            }
+        }
+        
+        return distribution;
+    }
+
+    generateServerPortName(index) {
+        return `enp${Math.floor(index/2)}s${(index % 2) + 1}`;
+    }
+
+    async generateConfig(formData) {
         try {
             // Validate the fabric design
             const config = await this.portAssignmentManager.validateAndAssignPorts(formData);
@@ -169,10 +215,14 @@ class ConfigGenerator {
             const spineModel = formData.topology.spines.model;
             const leafModel = formData.topology.leaves.model;
 
+            // Initialize port tracking
+            const usedPorts = {};
+
             // Generate spine switch objects
             const spines = [];
             for (let i = 0; i < formData.topology.spines.count; i++) {
-                const spineName = generateSwitchName(spineModel, i);
+                const spineName = this.generateSwitchName(spineModel, i);
+                usedPorts[spineName] = [];
                 const spineObj = this.generateSwitch(spineName, spineModel, 'spine', {
                     portBreakouts: config.configs.spines[i].portBreakouts,
                     serial: formData.switchSerials[spineName]
@@ -183,8 +233,9 @@ class ConfigGenerator {
 
             // Generate leaf switch objects
             const leaves = [];
-            for (let i = 0; i < formData.topology.leaves.count; i++) {
-                const leafName = generateSwitchName(leafModel, i);
+            for (let i = 0; i < formData.leafCount; i++) {
+                const leafName = this.generateSwitchName(leafModel, i);
+                usedPorts[leafName] = [];
                 const leafObj = this.generateSwitch(leafName, leafModel, 'leaf', {
                     portBreakouts: config.configs.leaves[i].portBreakouts,
                     serial: formData.switchSerials[leafName]
@@ -194,9 +245,73 @@ class ConfigGenerator {
             }
 
             // Generate fabric connections
-            k8sObjects.push(...this.generateFabricConnections(spines, leaves, {
-                uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf
-            }));
+            const fabricConnections = this.generateFabricConnections(spines, leaves, config);
+            k8sObjects.push(...fabricConnections);
+
+            // Initialize port analyzers for each switch type
+            const spineProfile = await this.switchProfileManager.getSwitchProfile(spineModel);
+            const leafProfile = await this.switchProfileManager.getSwitchProfile(leafModel);
+            const portAnalyzer = new PortProfileAnalyzer(leafProfile);
+
+            // Initialize connection distributor
+            const distributor = new ConnectionDistributor(leaves.length);
+
+            // Generate server objects with port allocation
+            const serverDistribution = this.distributeServersAcrossLeaves(
+                parseInt(formData.serverCount),
+                parseInt(formData.leafCount)
+            );
+
+            let currentLeafIndex = 0;
+            Object.entries(serverDistribution).forEach(([_, servers]) => {
+                servers.forEach(serverName => {
+                    // Get leaf switches for this server's connections
+                    const targetLeaves = distributor.getLeafSwitchesForServer(
+                        formData.serverConfig.serverConfigType,
+                        formData.serverConfig.connectionsPerServer,
+                        currentLeafIndex
+                    );
+
+                    const serverPorts = [];
+                    targetLeaves.forEach(leafName => {
+                        const port = portAnalyzer.getNextAvailablePort(
+                            usedPorts[leafName],
+                            formData.serverConfig.breakoutType
+                        );
+                        usedPorts[leafName].push(port);
+                        
+                        const portName = portAnalyzer.getPortName(
+                            port,
+                            formData.serverConfig.breakoutType,
+                            serverPorts.length
+                        );
+                        serverPorts.push(portName);
+                    });
+
+                    k8sObjects.push({
+                        apiVersion: 'wiring.githedgehog.com/v1beta1',
+                        kind: 'Server',
+                        metadata: {
+                            name: serverName
+                        },
+                        spec: {
+                            description: `${formData.serverConfig.serverConfigType} server with ${serverPorts.length} connections`,
+                            ports: serverPorts.map((_, i) => this.generateServerPortName(i))
+                        }
+                    });
+
+                    // Generate connections for this server
+                    const connectionGenerator = new ServerConnectionGenerator(
+                        serverName,
+                        formData.serverConfig.serverConfigType,
+                        serverPorts
+                    );
+
+                    const connections = connectionGenerator.generateConnections(targetLeaves);
+                    k8sObjects.push(...connections);
+                });
+                currentLeafIndex = (currentLeafIndex + 1) % parseInt(formData.leafCount);
+            });
 
             return k8sObjects;
         } catch (error) {
@@ -206,109 +321,4 @@ class ConfigGenerator {
     }
 }
 
-import { PortAllocationRules } from './portAllocationRules.js';
-
-// Supported switch models
-const SUPPORTED_SWITCHES = [
-    'dell_s5248f_on',
-    'dell_s5232f_on',
-    'supermicro_sse_c4632'
-];
-
-// Get the shared portRules instance
-const portRules = new PortAllocationRules();
-
-// Initialize port allocation rules
-export async function initializePortRules() {
-    await portRules.initialize();
-    return portRules;
-}
-
-// Validate port assignments
-function validatePorts(config) {
-    if (!portRules) {
-        throw new Error('Port rules not initialized');
-    }
-
-    const switchModel = config.switchModel;
-    const errors = [];
-
-    // Validate fabric ports
-    config.fabricPorts.forEach(port => {
-        if (!portRules.isValidPort(switchModel, 'fabric', port)) {
-            errors.push(`Port ${port} is not a valid fabric port for ${switchModel}`);
-        }
-    });
-
-    // Validate server ports
-    config.serverPorts.forEach(port => {
-        if (!portRules.isValidPort(switchModel, 'server', port)) {
-            errors.push(`Port ${port} is not a valid server port for ${switchModel}`);
-        }
-    });
-
-    return errors;
-}
-
-function getPortName(switchName, portNum, breakout) {
-    const portStr = `E1/${portNum}`;
-    if (breakout && breakout !== 'fixed') {
-        return `${switchName}/${portStr}/1`; // For now, always use first breakout port
-    }
-    return `${switchName}/${portStr}`;
-}
-
-function generateVLANNamespace(ranges = [{ from: 1000, to: 2999 }]) {
-    return {
-        apiVersion: 'wiring.githedgehog.com/v1beta1',
-        kind: 'VLANNamespace',
-        metadata: {
-            name: 'default'
-        },
-        spec: {
-            ranges
-        }
-    };
-}
-
-function generateIPv4Namespace(name = 'default', subnets = ['10.10.0.0/16']) {
-    return {
-        apiVersion: 'vpc.githedgehog.com/v1beta1',
-        kind: 'IPv4Namespace',
-        metadata: {
-            name
-        },
-        spec: {
-            subnets
-        }
-    };
-}
-
-// Helper function to generate switch names
-export function generateSwitchName(model, index) {
-    // Convert model name to lowercase and remove hyphens
-    const normalizedModel = model.toLowerCase().replace(/-/g, '');
-    
-    // Extract model name without the vendor prefix and -on suffix
-    const modelPrefix = normalizedModel
-        .replace('dell', '')
-        .replace('celestica', '')
-        .replace('edgecore', '')
-        .replace('supermicro', '')
-        .replace('on', '');
-    
-    return `${modelPrefix}-${String(index + 1).padStart(2, '0')}`;
-}
-
-export async function generateConfig(formData) {
-    const portRules = new PortAllocationRules();
-    await portRules.initialize();
-
-    // Initialize switch profile manager
-    const switchProfileManager = new SwitchProfileManager();
-    await switchProfileManager.initialize();
-
-    // Create config generator with initialized components
-    const configGenerator = new ConfigGenerator(switchProfileManager, portRules);
-    return configGenerator.generateConfig(formData);
-}
+export { ConfigGenerator };

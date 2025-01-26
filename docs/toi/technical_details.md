@@ -81,6 +81,162 @@
    - Prevent form submission if uplinks can't be distributed
    - Clear errors when input becomes valid
 
+## Server Port Configuration
+
+### Port Profile Analysis
+1. Server Port Identification:
+   ```javascript
+   // Filter ports by profile type
+   getServerPorts() {
+     return Object.entries(ports)
+       .filter(([_, port]) => 
+         port.Profile && !port.Profile.includes('fabric'))
+       .map(([name, port]) => ({
+         name,
+         profile: portProfiles[port.Profile],
+         portConfig: port
+       }));
+   }
+   ```
+
+2. Breakout Mode Handling:
+   ```javascript
+   // Determine breakout capabilities
+   getBreakoutInfo(portName) {
+     const port = ports[portName];
+     const profile = portProfiles[port.Profile];
+     
+     if (!profile?.Breakout) {
+       return { isFixed: true, breakoutModes: [], defaultMode: 'Fixed' };
+     }
+
+     return {
+       isFixed: false,
+       breakoutModes: Object.keys(profile.Breakout.Supported),
+       defaultMode: profile.Breakout.Default
+     };
+   }
+   ```
+
+3. Port Assignment:
+   ```javascript
+   // Get next available port with breakout support
+   getNextAvailablePort(usedPorts = [], breakoutMode = 'Fixed') {
+     const availablePorts = getServerPorts()
+       .filter(port => !usedPorts.includes(port.name));
+
+     const port = availablePorts.find(port => {
+       const breakoutInfo = getBreakoutInfo(port.name);
+       if (breakoutMode === 'Fixed') {
+         return breakoutInfo.isFixed || breakoutInfo.breakoutModes.includes('Fixed');
+       }
+       return breakoutInfo.breakoutModes.includes(breakoutMode);
+     });
+
+     return port?.name;
+   }
+   ```
+
+### Server Connection Distribution
+1. Distribution Algorithm:
+   ```javascript
+   // Distribute servers across leaves
+   distributeServersAcrossLeaves(serverCount, leafCount) {
+     if (serverCount <= 0 || leafCount <= 0) {
+       throw new Error('Invalid counts');
+     }
+
+     const distribution = {};
+     const baseCount = Math.floor(serverCount / leafCount);
+     const remainder = serverCount % leafCount;
+
+     for (let i = 0; i < leafCount; i++) {
+       const count = i < remainder ? baseCount + 1 : baseCount;
+       distribution[`leaf-${i + 1}`] = Array.from(
+         { length: count },
+         (_, j) => `server-${j + 1}`
+       );
+     }
+
+     return distribution;
+   }
+   ```
+
+2. Connection Type Handling:
+   ```javascript
+   // Get leaf switches for server connections
+   getLeafSwitchesForServer(configType, connectionsPerServer, startIndex) {
+     const leaves = [];
+     switch (configType) {
+       case 'single':
+         leaves.push(`leaf-${startIndex + 1}`);
+         break;
+       case 'lag':
+         for (let i = 0; i < connectionsPerServer; i++) {
+           leaves.push(`leaf-${startIndex + 1}`);
+         }
+         break;
+       case 'mclag':
+         leaves.push(`leaf-${startIndex + 1}`);
+         leaves.push(`leaf-${startIndex + 2}`);
+         break;
+       case 'eslag':
+         for (let i = 0; i < connectionsPerServer; i++) {
+           leaves.push(`leaf-${startIndex + i + 1}`);
+         }
+         break;
+     }
+     return leaves;
+   }
+   ```
+
+### Port Naming
+1. Breakout Port Names:
+   ```javascript
+   // Generate port names with breakout
+   getPortName(basePort, breakoutMode, subPort = 0) {
+     if (breakoutMode === 'Fixed' || !breakoutMode) {
+       return basePort;
+     }
+
+     const [prefix, number] = basePort.match(/([a-zA-Z]+)(\d+)/).slice(1);
+     return `${prefix}${number}/${subPort + 1}`;
+   }
+   ```
+
+2. Port Tracking:
+   ```javascript
+   // Initialize port tracking per switch
+   const usedPorts = {};
+   switches.forEach(sw => {
+     usedPorts[sw.metadata.name] = [];
+   });
+
+   // Track port assignments
+   usedPorts[switchName].push(portName);
+   ```
+
+### Critical Implementation Details
+1. Port Selection Rules:
+   - Must check both fixed ports and breakout-capable ports for Fixed mode
+   - Must validate breakout mode support before assignment
+   - Must track used ports per switch to prevent duplicates
+   - Must handle subport numbering for breakout ports
+
+2. Distribution Requirements:
+   - Servers must be evenly distributed across leaves
+   - Connection types must determine leaf switch selection
+   - Port assignments must be deterministic
+   - Must handle remainder servers properly
+
+3. Error Handling:
+   - Throw specific errors for:
+     * No available ports
+     * Unsupported breakout modes
+     * Invalid server/leaf counts
+     * Invalid connection types
+   - Include error context for debugging
+
 ## Critical Dependencies
 
 ### SwitchProfileManager

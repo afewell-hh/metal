@@ -10,6 +10,20 @@ const switchProfileManager = new SwitchProfileManager();
 const DEFAULT_VLAN_RANGE = { from: 1000, to: 2999 };
 const DEFAULT_IPV4_SUBNET = '10.10.0.0/16';
 
+const serverConfigTypes = [
+  { value: 'unbundled-SH', label: 'Unbundled Single-Homed' },
+  { value: 'bundled-LAG-SH', label: 'Bundled LAG Single-Homed' },
+  { value: 'bundled-mclag', label: 'Bundled MCLAG' },
+  { value: 'bundled-eslag', label: 'Bundled ESLAG' }
+];
+
+const connectionsPerServerOptions = [
+  { value: 1, label: '1 Connection' },
+  { value: 2, label: '2 Connections' },
+  { value: 4, label: '4 Connections' },
+  { value: 8, label: '8 Connections' }
+];
+
 const DEFAULT_FORM_DATA = {
   vlanNamespace: {
     ranges: [DEFAULT_VLAN_RANGE]
@@ -39,7 +53,12 @@ const DEFAULT_FORM_DATA = {
       totalServerPorts: 16
     }
   },
-  switchSerials: {}
+  switchSerials: {},
+  serverConfig: {
+    serverConfigType: 'unbundled-SH',
+    connectionsPerServer: 1,
+    breakoutType: 'Fixed'
+  }
 };
 
 export function ConfigForm() {
@@ -51,6 +70,8 @@ export function ConfigForm() {
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [supportedSwitches, setSupportedSwitches] = useState([]);
+  const [breakoutOptions, setBreakoutOptions] = useState([]);
+  const [isBreakoutDisabled, setIsBreakoutDisabled] = useState(true);
 
   useEffect(() => {
     async function initializeRules() {
@@ -104,6 +125,73 @@ export function ConfigForm() {
     }
   }, [formData.topology.spines.model, formData.topology.spines.count, 
       formData.topology.leaves.model, formData.topology.leaves.count]);
+
+  useEffect(() => {
+    const profile = formData.topology?.leaves?.model;
+    if (profile) {
+      fetch(`/api/switch_profiles/${profile}`)
+        .then(response => response.json())
+        .then(profileData => {
+          const ports = Object.entries(profileData.Ports || {});
+          const serverPort = ports.find(([_, port]) => port.Profile)?.[1];
+
+          if (!serverPort || !serverPort.Profile) {
+            setBreakoutOptions([]);
+            setIsBreakoutDisabled(true);
+            setFormData(prev => ({
+              ...prev,
+              serverConfig: {
+                ...prev.serverConfig,
+                breakoutType: 'Fixed'
+              }
+            }));
+            return;
+          }
+
+          const portProfile = profileData.PortProfiles[serverPort.Profile];
+          if (!portProfile || !portProfile.Breakout) {
+            setBreakoutOptions([]);
+            setIsBreakoutDisabled(true);
+            setFormData(prev => ({
+              ...prev,
+              serverConfig: {
+                ...prev.serverConfig,
+                breakoutType: 'Fixed'
+              }
+            }));
+            return;
+          }
+
+          // Get supported breakout modes
+          const options = Object.keys(portProfile.Breakout.Supported).map(mode => ({
+            value: mode,
+            label: mode
+          }));
+
+          setBreakoutOptions(options);
+          setIsBreakoutDisabled(false);
+          setFormData(prev => ({
+            ...prev,
+            serverConfig: {
+              ...prev.serverConfig,
+              breakoutType: portProfile.Breakout.Default
+            }
+          }));
+        })
+        .catch(error => {
+          console.error('Error loading switch profile:', error);
+          setBreakoutOptions([]);
+          setIsBreakoutDisabled(true);
+          setFormData(prev => ({
+            ...prev,
+            serverConfig: {
+              ...prev.serverConfig,
+              breakoutType: 'Fixed'
+            }
+          }));
+        });
+    }
+  }, [formData.topology?.leaves?.model]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -432,6 +520,70 @@ export function ConfigForm() {
               <option value="fixed">Fixed (No Breakout)</option>
               <option value="4x10G">4x10G</option>
               <option value="4x25G">4x25G</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Server Configuration */}
+        <div>
+          <h3>Server Configuration</h3>
+          <div>
+            <label>Server Port Configuration:</label>
+            <select
+              value={formData.serverConfig.serverConfigType}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                serverConfig: {
+                  ...prev.serverConfig,
+                  serverConfigType: e.target.value
+                }
+              }))}
+            >
+              {serverConfigTypes.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Connections Per Server:</label>
+            <select
+              value={formData.serverConfig.connectionsPerServer}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                serverConfig: {
+                  ...prev.serverConfig,
+                  connectionsPerServer: parseInt(e.target.value)
+                }
+              }))}
+            >
+              {connectionsPerServerOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label>Port Breakout Type:</label>
+            <select
+              value={formData.serverConfig.breakoutType}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                serverConfig: {
+                  ...prev.serverConfig,
+                  breakoutType: e.target.value
+                }
+              }))}
+              disabled={isBreakoutDisabled}
+            >
+              <option value="Fixed">Fixed</option>
+              {breakoutOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
           </div>
         </div>
