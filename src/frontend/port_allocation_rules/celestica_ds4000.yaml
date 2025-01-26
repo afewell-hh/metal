@@ -1,0 +1,4 @@
+# Celestica DS4000 Port Allocation Rules
+fabric: ["1-32"]     # QSFP28 ports for fabric connections
+server: ["1-32"]    # SFP28 ports for server connections
+management: ["M1"]   # Management port

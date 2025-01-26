@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { generateConfig, generateSwitchName } from './configGenerator';
 import jsyaml from 'js-yaml';
+import { PortAllocationRules } from './portAllocationRules.js';
+
+const portRules = new PortAllocationRules();
 
 const DEFAULT_VLAN_RANGE = { from: 1000, to: 2999 };
 const DEFAULT_IPV4_SUBNET = '10.10.0.0/16';
@@ -17,22 +20,21 @@ const DEFAULT_FORM_DATA = {
     spines: {
       model: 'dell-s5232f-on',
       count: 2,
-      portConfig: {
-        speed: '100G',
+      fabricPortConfig: {
         breakout: null
       }
     },
     leaves: {
       model: 'dell-s5248f-on',
       count: 4,
-      fabricPorts: {
-        speed: '100G',
+      fabricPortsPerLeaf: 2,
+      fabricPortConfig: {
         breakout: null
       },
-      serverPorts: {
-        speed: '10G',
+      serverPortConfig: {
         breakout: null
-      }
+      },
+      totalServerPorts: 16
     }
   },
   switchSerials: {}
@@ -40,11 +42,25 @@ const DEFAULT_FORM_DATA = {
 
 export function ConfigForm() {
   const [formData, setFormData] = useState(DEFAULT_FORM_DATA);
-
-  // Step 2 state after initial topology is set
   const [showSerialInput, setShowSerialInput] = useState(false);
+  const [generatedConfig, setGeneratedConfig] = useState(null);
+  const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Generate switch names when topology changes
+  useEffect(() => {
+    async function initializeRules() {
+      try {
+        await portRules.initialize();
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to initialize port rules:', error);
+        setError('Failed to initialize port rules. Please check console for details.');
+        setIsLoading(false);
+      }
+    }
+    initializeRules();
+  }, []);
+
   useEffect(() => {
     if (formData.topology) {
       const newSerials = {};
@@ -77,21 +93,33 @@ export function ConfigForm() {
     }
   }, [formData.topology]);
 
-  const [generatedConfig, setGeneratedConfig] = useState(null);
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setError(null);
+    
     if (!showSerialInput) {
       setShowSerialInput(true);
       return;
     }
 
-    // Generate final config
-    console.log('Form Data:', formData);
-    const config = generateConfig(formData);
-    console.log('Generated Config:', config);
-    setGeneratedConfig(config);
+    try {
+      console.log('Form Data: ', formData);
+      const config = await generateConfig(formData);
+      console.log('Generated Config: ', config);
+      setGeneratedConfig(config);
+    } catch (error) {
+      console.error('Failed to generate config:', error);
+      setError(error.message);
+    }
   };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="error">{error}</div>;
+  }
 
   if (showSerialInput && generatedConfig) {
     const yamlConfigs = generatedConfig.configs.map(config => 
@@ -136,7 +164,6 @@ export function ConfigForm() {
       <form onSubmit={handleSubmit}>
         <h2>Step 2: Enter Switch Serial Numbers</h2>
         
-        {/* Serial number inputs */}
         {Object.keys(formData.switchSerials).map(switchName => (
           <div key={switchName}>
             <label>{switchName}</label>
@@ -212,194 +239,187 @@ export function ConfigForm() {
 
       {/* Spine Configuration */}
       <div>
-        <h3>Spine Switches</h3>
-        <select
-          value={formData.topology.spines.model}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              spines: {
-                ...prev.topology.spines,
-                model: e.target.value
-              }
-            }
-          }))}
-        >
-          <option value="dell-s5232f-on">Dell S5232F-ON</option>
-        </select>
-        <input
-          type="number"
-          value={formData.topology.spines.count}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              spines: {
-                ...prev.topology.spines,
-                count: parseInt(e.target.value)
-              }
-            }
-          }))}
-        />
-        <select
-          value={formData.topology.spines.portConfig.speed}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              spines: {
-                ...prev.topology.spines,
-                portConfig: {
-                  ...prev.topology.spines.portConfig,
-                  speed: e.target.value
+        <h3>Spine Configuration</h3>
+        <div>
+          <label>Model:</label>
+          <select
+            value={formData.topology.spines.model}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                spines: {
+                  ...prev.topology.spines,
+                  model: e.target.value
                 }
               }
-            }
-          }))}
-        >
-          <option value="100G">100G</option>
-          <option value="40G">40G</option>
-        </select>
-        <select
-          value={formData.topology.spines.portConfig.breakout || ''}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              spines: {
-                ...prev.topology.spines,
-                portConfig: {
-                  ...prev.topology.spines.portConfig,
-                  breakout: e.target.value || null
+            }))}
+          >
+            <option value="dell-s5232f-on">Dell S5232F-ON</option>
+          </select>
+        </div>
+        <div>
+          <label>Count:</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.topology.spines.count}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                spines: {
+                  ...prev.topology.spines,
+                  count: parseInt(e.target.value)
                 }
               }
-            }
-          }))}
-        >
-          <option value="">No Breakout</option>
-          <option value="4x25G">4x25G</option>
-          <option value="4x10G">4x10G</option>
-        </select>
+            }))}
+          />
+        </div>
+        <div>
+          <label>Fabric Port Breakout:</label>
+          <select
+            value={formData.topology.spines.fabricPortConfig.breakout || ''}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                spines: {
+                  ...prev.topology.spines,
+                  fabricPortConfig: {
+                    breakout: e.target.value || null
+                  }
+                }
+              }
+            }))}
+          >
+            <option value="">Select Breakout</option>
+            <option value="4x25G">4x25G</option>
+            <option value="2x50G">2x50G</option>
+            <option value="1x100G">1x100G</option>
+          </select>
+        </div>
       </div>
 
       {/* Leaf Configuration */}
       <div>
-        <h3>Leaf Switches</h3>
-        <select
-          value={formData.topology.leaves.model}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              leaves: {
-                ...prev.topology.leaves,
-                model: e.target.value
-              }
-            }
-          }))}
-        >
-          <option value="dell-s5248f-on">Dell S5248F-ON</option>
-        </select>
-        <input
-          type="number"
-          value={formData.topology.leaves.count}
-          onChange={(e) => setFormData(prev => ({
-            ...prev,
-            topology: {
-              ...prev.topology,
-              leaves: {
-                ...prev.topology.leaves,
-                count: parseInt(e.target.value)
-              }
-            }
-          }))}
-        />
-        
-        {/* Fabric Ports */}
+        <h3>Leaf Configuration</h3>
         <div>
-          <h4>Fabric Ports</h4>
+          <label>Model:</label>
           <select
-            value={formData.topology.leaves.fabricPorts.speed}
+            value={formData.topology.leaves.model}
             onChange={(e) => setFormData(prev => ({
               ...prev,
               topology: {
                 ...prev.topology,
                 leaves: {
                   ...prev.topology.leaves,
-                  fabricPorts: {
-                    ...prev.topology.leaves.fabricPorts,
-                    speed: e.target.value
-                  }
+                  model: e.target.value
                 }
               }
             }))}
           >
-            <option value="100G">100G</option>
-            <option value="40G">40G</option>
-          </select>
-          <select
-            value={formData.topology.leaves.fabricPorts.breakout || ''}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  fabricPorts: {
-                    ...prev.topology.leaves.fabricPorts,
-                    breakout: e.target.value || null
-                  }
-                }
-              }
-            }))}
-          >
-            <option value="">No Breakout</option>
-            <option value="4x25G">4x25G</option>
-            <option value="4x10G">4x10G</option>
+            <option value="dell-s5248f-on">Dell S5248F-ON</option>
           </select>
         </div>
-
-        {/* Server Ports */}
         <div>
-          <h4>Server Ports</h4>
-          <select
-            value={formData.topology.leaves.serverPorts.speed}
+          <label>Count:</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.topology.leaves.count}
             onChange={(e) => setFormData(prev => ({
               ...prev,
               topology: {
                 ...prev.topology,
                 leaves: {
                   ...prev.topology.leaves,
-                  serverPorts: {
-                    ...prev.topology.leaves.serverPorts,
-                    speed: e.target.value
-                  }
+                  count: parseInt(e.target.value)
                 }
               }
             }))}
-          >
-            <option value="10G">10G</option>
-            <option value="25G">25G</option>
-          </select>
-          <select
-            value={formData.topology.leaves.serverPorts.breakout || ''}
+          />
+        </div>
+        <div>
+          <label>Fabric Ports Per Leaf:</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.topology.leaves.fabricPortsPerLeaf}
             onChange={(e) => setFormData(prev => ({
               ...prev,
               topology: {
                 ...prev.topology,
                 leaves: {
                   ...prev.topology.leaves,
-                  serverPorts: {
-                    ...prev.topology.leaves.serverPorts,
+                  fabricPortsPerLeaf: parseInt(e.target.value)
+                }
+              }
+            }))}
+          />
+        </div>
+        <div>
+          <label>Fabric Port Breakout:</label>
+          <select
+            value={formData.topology.leaves.fabricPortConfig.breakout || ''}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                leaves: {
+                  ...prev.topology.leaves,
+                  fabricPortConfig: {
                     breakout: e.target.value || null
                   }
                 }
               }
             }))}
           >
-            <option value="">No Breakout</option>
+            <option value="">Select Breakout</option>
+            <option value="4x25G">4x25G</option>
+            <option value="2x50G">2x50G</option>
+            <option value="1x100G">1x100G</option>
+          </select>
+        </div>
+        <div>
+          <label>Total Server Ports Needed:</label>
+          <input
+            type="number"
+            min="1"
+            value={formData.topology.leaves.totalServerPorts}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                leaves: {
+                  ...prev.topology.leaves,
+                  totalServerPorts: parseInt(e.target.value)
+                }
+              }
+            }))}
+          />
+        </div>
+        <div>
+          <label>Server Port Breakout:</label>
+          <select
+            value={formData.topology.leaves.serverPortConfig.breakout || ''}
+            onChange={(e) => setFormData(prev => ({
+              ...prev,
+              topology: {
+                ...prev.topology,
+                leaves: {
+                  ...prev.topology.leaves,
+                  serverPortConfig: {
+                    breakout: e.target.value || null
+                  }
+                }
+              }
+            }))}
+          >
+            <option value="">Select Breakout</option>
+            <option value="fixed">Fixed (No Breakout)</option>
             <option value="4x10G">4x10G</option>
+            <option value="4x25G">4x25G</option>
           </select>
         </div>
       </div>

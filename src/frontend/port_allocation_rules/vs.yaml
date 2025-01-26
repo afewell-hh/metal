@@ -1,0 +1,5 @@
+# Virtual Switch Port Allocation Rules
+# Uses same port layout as Dell S5248F-ON
+fabric: ["49-56"]    # High-speed ports for fabric connections
+server: ["1-48"]     # Lower speed ports for server connections
+management: ["M1"]   # Management port

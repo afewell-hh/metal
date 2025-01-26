@@ -1,0 +1,4 @@
+# Dell S5248F-ON Port Allocation Rules
+fabric: ["49-56"]    # High-speed ports for fabric connections
+server: ["1-48"]     # Lower speed ports for server connections
+management: ["M1"]   # Management port

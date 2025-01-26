@@ -1,0 +1,4 @@
+# Edgecore DCS-203 Port Allocation Rules
+fabric: ["49-55"]     # QSFP28 ports for fabric connections
+server: ["1-48"]    # SFP28 ports for server connections
+management: ["M1"]   # Management port

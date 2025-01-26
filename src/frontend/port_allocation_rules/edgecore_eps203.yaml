@@ -1,0 +1,4 @@
+# Edgecore EPS-203 Port Allocation Rules
+fabric: ["1-35"]     # QSFP28 ports for fabric connections
+server: ["53-54"]    # SFP28 ports for server connections
+management: ["M1"]   # Management port
