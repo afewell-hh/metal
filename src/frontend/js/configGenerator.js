@@ -48,21 +48,27 @@ class ConfigGenerator {
 
     // Normalize model name to use underscores instead of dashes
     normalizeModelName(model) {
+        if (!model) {
+            throw new Error('Model name is required');
+        }
         return model.replace(/-/g, '_');
     }
 
     async generateConfig(formData) {
         console.log('Received form data:', formData);
 
-        // Extract form data
+        // Extract topology data
         const {
-            numLeafSwitches,
-            numSpineSwitches,
-            uplinksPerLeaf,
-            totalServerPorts,
-            leafModel,
-            spineModel
-        } = formData;
+            model: leafModel,
+            count: numLeafSwitches,
+            fabricPortsPerLeaf: uplinksPerLeaf,
+            totalServerPorts
+        } = formData.topology.leaves;
+
+        const {
+            model: spineModel,
+            count: numSpineSwitches
+        } = formData.topology.spines;
 
         // Normalize model names
         const normalizedLeafModel = this.normalizeModelName(leafModel);
@@ -404,9 +410,9 @@ export async function generateConfig(formData) {
         // Generate fabric connections
         config.configs.leaves.forEach(leaf => {
             leaf.ports.fabric.forEach((fabricPort, index) => {
-                const spineIndex = Math.floor(index / formData.uplinksPerLeaf);
-                const spineName = generateSwitchName(formData.spineModel, spineIndex);
-                const spinePortIndex = index % formData.numSpineSwitches;
+                const spineIndex = Math.floor(index / formData.topology.leaves.fabricPortsPerLeaf);
+                const spineName = generateSwitchName(formData.topology.spines.model, spineIndex);
+                const spinePortIndex = index % formData.topology.spines.count;
                 
                 configs.push(generateFabricConnection(
                     spineName,
