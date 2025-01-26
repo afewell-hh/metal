@@ -46,15 +46,24 @@ class ConfigGenerator {
         return baseConfig;
     }
 
+    // Normalize model name to use underscores instead of dashes
+    normalizeModelName(model) {
+        return model.replace(/-/g, '_');
+    }
+
     async generateConfig(formData) {
+        // Normalize model names
+        const leafModel = this.normalizeModelName(formData.leafModel);
+        const spineModel = this.normalizeModelName(formData.spineModel);
+
         // First validate the fabric design
         const validation = this.portAssignmentManager.validateFabricDesign({
             leafSwitches: formData.numLeafSwitches,
             spineSwitches: formData.numSpineSwitches,
             uplinksPerLeaf: formData.uplinksPerLeaf,
             totalServerPorts: formData.totalServerPorts,
-            leafModel: formData.leafModel,
-            spineModel: formData.spineModel
+            leafModel,
+            spineModel
         });
 
         if (!validation.isValid) {
@@ -67,8 +76,8 @@ class ConfigGenerator {
             spineSwitches: formData.numSpineSwitches,
             uplinksPerLeaf: formData.uplinksPerLeaf,
             totalServerPorts: formData.totalServerPorts,
-            leafModel: formData.leafModel,
-            spineModel: formData.spineModel
+            leafModel,
+            spineModel
         });
 
         // Generate the final configuration using port assignments
