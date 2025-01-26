@@ -80,33 +80,27 @@ export function ConfigForm() {
     if (formData.topology) {
       const newSerials = {};
       
+      // Clear all existing serials when topology changes
       // Generate spine switch names
       for (let i = 0; i < formData.topology.spines.count; i++) {
         const name = generateSwitchName(formData.topology.spines.model, i);
-        if (!formData.switchSerials[name]) {
-          newSerials[name] = 'TODO';
-        }
+        newSerials[name] = 'TODO';
       }
 
       // Generate leaf switch names
       for (let i = 0; i < formData.topology.leaves.count; i++) {
         const name = generateSwitchName(formData.topology.leaves.model, i);
-        if (!formData.switchSerials[name]) {
-          newSerials[name] = 'TODO';
-        }
+        newSerials[name] = 'TODO';
       }
 
-      if (Object.keys(newSerials).length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          switchSerials: {
-            ...prev.switchSerials,
-            ...newSerials
-          }
-        }));
-      }
+      // Replace (not merge) the switchSerials object
+      setFormData(prev => ({
+        ...prev,
+        switchSerials: newSerials
+      }));
     }
-  }, [formData.topology]);
+  }, [formData.topology.spines.model, formData.topology.spines.count, 
+      formData.topology.leaves.model, formData.topology.leaves.count]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();

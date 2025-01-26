@@ -286,9 +286,17 @@ function generateIPv4Namespace(name = 'default', subnets = ['10.10.0.0/16']) {
 
 // Helper function to generate switch names
 export function generateSwitchName(model, index) {
-    const modelPrefix = model.includes('s5232') ? 's5232' : 
-                       model.includes('s5248') ? 's5248' : 
-                       model.replace(/[^a-zA-Z0-9]/g, '');
+    // Convert model name to lowercase and remove hyphens
+    const normalizedModel = model.toLowerCase().replace(/-/g, '');
+    
+    // Extract model name without the vendor prefix and -on suffix
+    const modelPrefix = normalizedModel
+        .replace('dell', '')
+        .replace('celestica', '')
+        .replace('edgecore', '')
+        .replace('supermicro', '')
+        .replace('on', '');
+    
     return `${modelPrefix}-${String(index + 1).padStart(2, '0')}`;
 }
 
