@@ -76,7 +76,7 @@ class ConfigGenerator {
 
     // Generate proper port name following Hedgehog format
     generatePortName(deviceName, portNumber) {
-        return `${deviceName}/Ethernet${portNumber}`;
+        return `${deviceName}/E1/${portNumber}`;
     }
 
     // Generate Switch configuration

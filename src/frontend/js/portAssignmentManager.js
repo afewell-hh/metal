@@ -406,10 +406,17 @@ export class PortAssignmentManager {
                 },
                 portBreakouts: {},  // No breakouts by default for spine switches
                 ports: {
-                    fabric: Array(uplinksPerLeaf * numLeafSwitches).fill(null).map((_, j) => ({
-                        id: `${j + 1}`,
-                        speed: "100G"
-                    }))
+                    fabric: Array(uplinksPerLeaf * numLeafSwitches).fill(null).map((_, j) => {
+                        // Calculate port number based on leaf index and uplink number
+                        // Each leaf gets a dedicated set of ports on the spine
+                        const leafIndex = Math.floor(j / uplinksPerLeaf);
+                        const uplinkIndex = j % uplinksPerLeaf;
+                        const portNumber = leafIndex * uplinksPerLeaf * numSpineSwitches + uplinkIndex * numSpineSwitches + i + 1;
+                        return {
+                            id: `${portNumber}`,
+                            speed: "100G"
+                        };
+                    })
                 }
             });
         }
@@ -426,7 +433,8 @@ export class PortAssignmentManager {
                 portBreakouts: {},  // Add breakouts if needed
                 ports: {
                     fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => ({
-                        id: `${j + 49}`,  // Starting from port 49 for fabric ports
+                        // Use 49, 51, 53, 55 for fabric ports
+                        id: `${49 + j * 2}`,
                         speed: "100G"
                     })),
                     server: Array(totalServerPorts).fill(null).map((_, j) => ({
