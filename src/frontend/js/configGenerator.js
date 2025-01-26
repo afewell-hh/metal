@@ -58,8 +58,7 @@ class ConfigGenerator {
             apiVersion,
             kind,
             metadata: {
-                generateName: name,
-                name: name
+                name
             },
             spec
         };

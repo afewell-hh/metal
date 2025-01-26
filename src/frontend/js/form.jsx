@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { generateConfig, generateSwitchName } from './configGenerator';
+import { SwitchProfileManager } from './switchProfileManager';
 import jsyaml from 'js-yaml';
 import { PortAllocationRules } from './portAllocationRules.js';
 
 const portRules = new PortAllocationRules();
-
+const switchProfileManager = new SwitchProfileManager();
 const DEFAULT_VLAN_RANGE = { from: 1000, to: 2999 };
 const DEFAULT_IPV4_SUBNET = '10.10.0.0/16';
 
@@ -46,19 +47,33 @@ export function ConfigForm() {
   const [generatedConfig, setGeneratedConfig] = useState(null);
   const [error, setError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [supportedSwitches, setSupportedSwitches] = useState([]);
 
   useEffect(() => {
     async function initializeRules() {
       try {
         await portRules.initialize();
-        setIsLoading(false);
       } catch (error) {
         console.error('Failed to initialize port rules:', error);
         setError('Failed to initialize port rules. Please check console for details.');
-        setIsLoading(false);
       }
     }
     initializeRules();
+  }, []);
+
+  useEffect(() => {
+    async function initializeProfiles() {
+      try {
+        await switchProfileManager.initialize();
+        setSupportedSwitches(switchProfileManager.baseProfiles.map(model => model.replace(/_/g, '-')));
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Failed to initialize switch profiles:', error);
+        setError('Failed to initialize switch profiles. Please check console for details.');
+        setIsLoading(false);
+      }
+    }
+    initializeProfiles();
   }, []);
 
   useEffect(() => {
@@ -241,42 +256,40 @@ export function ConfigForm() {
       {/* Spine Configuration */}
       <div>
         <h3>Spine Configuration</h3>
-        <div>
-          <label>Model:</label>
-          <select
-            value={formData.topology.spines.model}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                spines: {
-                  ...prev.topology.spines,
-                  model: e.target.value
-                }
+        <label>Model:</label>
+        <select
+          value={formData.topology.spines.model}
+          onChange={(e) => setFormData(prev => ({
+            ...prev,
+            topology: {
+              ...prev.topology,
+              spines: {
+                ...prev.topology.spines,
+                model: e.target.value
               }
-            }))}
-          >
-            <option value="dell-s5232f-on">Dell S5232F-ON</option>
-          </select>
-        </div>
-        <div>
-          <label>Count:</label>
-          <input
-            type="number"
-            min="1"
-            value={formData.topology.spines.count}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                spines: {
-                  ...prev.topology.spines,
-                  count: parseInt(e.target.value)
-                }
+            }
+          }))}
+        >
+          {supportedSwitches.map(model => (
+            <option key={model} value={model}>{model}</option>
+          ))}
+        </select>
+        <label>Count:</label>
+        <input
+          type="number"
+          min="1"
+          value={formData.topology.spines.count}
+          onChange={(e) => setFormData(prev => ({
+            ...prev,
+            topology: {
+              ...prev.topology,
+              spines: {
+                ...prev.topology.spines,
+                count: parseInt(e.target.value)
               }
-            }))}
-          />
-        </div>
+            }
+          }))}
+        />
         <div>
           <label>Fabric Port Breakout:</label>
           <select
@@ -305,42 +318,40 @@ export function ConfigForm() {
       {/* Leaf Configuration */}
       <div>
         <h3>Leaf Configuration</h3>
-        <div>
-          <label>Model:</label>
-          <select
-            value={formData.topology.leaves.model}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  model: e.target.value
-                }
+        <label>Model:</label>
+        <select
+          value={formData.topology.leaves.model}
+          onChange={(e) => setFormData(prev => ({
+            ...prev,
+            topology: {
+              ...prev.topology,
+              leaves: {
+                ...prev.topology.leaves,
+                model: e.target.value
               }
-            }))}
-          >
-            <option value="dell-s5248f-on">Dell S5248F-ON</option>
-          </select>
-        </div>
-        <div>
-          <label>Count:</label>
-          <input
-            type="number"
-            min="1"
-            value={formData.topology.leaves.count}
-            onChange={(e) => setFormData(prev => ({
-              ...prev,
-              topology: {
-                ...prev.topology,
-                leaves: {
-                  ...prev.topology.leaves,
-                  count: parseInt(e.target.value)
-                }
+            }
+          }))}
+        >
+          {supportedSwitches.map(model => (
+            <option key={model} value={model}>{model}</option>
+          ))}
+        </select>
+        <label>Count:</label>
+        <input
+          type="number"
+          min="1"
+          value={formData.topology.leaves.count}
+          onChange={(e) => setFormData(prev => ({
+            ...prev,
+            topology: {
+              ...prev.topology,
+              leaves: {
+                ...prev.topology.leaves,
+                count: parseInt(e.target.value)
               }
-            }))}
-          />
-        </div>
+            }
+          }))}
+        />
         <div>
           <label>Fabric Ports Per Leaf:</label>
           <input
