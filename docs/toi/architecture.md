@@ -101,21 +101,21 @@ Metal is a configuration generation tool for network fabric designs. It takes us
    - Creates output configuration objects
 
 5. **ConfigEditor** (`configEditor.jsx`)
-   - YAML-style object editor with exact structure matching
+   - YAML-based object editor with readonly/edit modes
    - Component Structure:
      ```javascript
      // Main component structure
      ConfigEditor
      ├── Object Groups (by kind)
-     │   ├── Object Cards
-     │   │   ├── Object Controls
-     │   │   │   ├── Visibility Toggle
-     │   │   │   └── Delete Button
-     │   │   └── YAML Structure
-     │   │       ├── Field Rows (key: value)
-     │   │       ├── Nested Objects
-     │   │       └── Array Items
-     │   └── Add Object Button
+     │   ├── Section Header
+     │   │   ├── Title
+     │   │   └── Add Object Button
+     │   └── Object Cards
+     │       ├── Object Controls
+     │       │   ├── Include in Configuration Toggle
+     │       │   ├── Edit/Done Button
+     │       │   └── Delete Button
+     │       └── YAML Editor (react-ace)
      └── Save Button
      ```
    - State Management:
@@ -124,97 +124,70 @@ Metal is a configuration generation tool for network fabric designs. It takes us
      {
        [kind: string]: Array<{
          ...objectData,
-         _isVisible: boolean  // Internal visibility state
+         _isVisible: boolean,  // Controls inclusion in final config
+         _isEditing: boolean, // Controls editor readonly state
+         _yamlText: string    // Current YAML content
        }>
      }
      ```
    - Key Features:
-     - Exact YAML structure matching
-     - VSCode-like key coloring
-     - 2-space indentation
-     - Array bullet points
-     - Empty object placeholders
-     - Special input handling:
-       * CIDR notation (e.g., "10.10.0.0/16")
-       * Port names (e.g., "spine-1/Ethernet1")
-     - Maintains field order:
-       1. apiVersion
-       2. kind
-       3. metadata
-       4. spec
-       5. other fields
+     - Full YAML editing with syntax validation
+     - VSCode-like styling
+     - Readonly by default with edit toggle
+     - New objects added to top of sections
+     - Object visibility control
+     - Proper YAML field ordering
    - Input/Output:
-     - Accepts both array and object formats
-     - Groups objects by kind internally
+     - Accepts array of K8s objects
+     - Groups by kind internally
      - Returns array of visible objects
      - Strips internal state on save
-   - Object Templates:
-     ```javascript
-     // Templates for new objects
-     const objectTemplates = {
-       IPv4Namespace: {
-         apiVersion: 'vpc.githedgehog.com/v1beta1',
-         kind: 'IPv4Namespace',
-         metadata: { name: '' },
-         spec: { subnets: [''] }
-       },
-       Switch: {
-         apiVersion: 'wiring.githedgehog.com/v1beta1',
-         kind: 'Switch',
-         metadata: { name: '' },
-         spec: {
-           boot: { mac: '' },
-           profile: '',
-           role: '',
-           description: '',
-           portBreakouts: {},
-           serial: ''
-         }
-       },
-       Connection: {
-         apiVersion: 'wiring.githedgehog.com/v1beta1',
-         kind: 'Connection',
-         metadata: { name: '' },
-         spec: {
-           fabric: {
-             links: [{
-               spine: { port: '' },
-               leaf: { port: '' }
-             }]
-           }
-         }
-       }
-     };
+   - Dependencies:
+     ```json
+     {
+       "react-ace": "^10.1.0",
+       "ace-builds": "^1.23.4",
+       "js-yaml": "^4.1.0"
+     }
      ```
-   - Object Validation:
-     - IPv4Namespace: CIDR notation required for subnets
-     - Switch: profile, role, and description are required
-     - Connection: port names must follow format "device/port"
-   - Field Handling:
-     - Empty objects displayed as "{}"
-     - Empty arrays displayed as "[]"
-     - Special input fields for:
-       * CIDR notation with validation
-       * Port names with format checking
-       * Required fields with visual indicators
-   - State Flow:
-     ```javascript
-     // Adding new object
-     1. User clicks "Add [Kind]"
-     2. Template is cloned with _isVisible: true
-     3. Added to objects[kind] array
-     
-     // Editing object
-     1. User modifies input field
-     2. Path-based update (e.g., "spec.boot.mac")
-     3. Immutable state update preserves structure
-     
-     // Saving objects
-     1. Filter objects by _isVisible
-     2. Strip _isVisible from each object
-     3. Convert to array format
-     4. Pass to onSave handler
-     ```
+
+### CSS Architecture (`/src/frontend/css/`)
+- BEM-like naming convention
+- Visual hierarchy:
+  ```
+  config-editor
+  └── object-group (light gray background)
+      ├── section-header
+      │   ├── title
+      │   └── add-object-button (blue)
+      └── object-card (white with shadow)
+          ├── object-controls (light gray)
+          │   ├── visibility toggle
+          │   ├── edit button (blue outline)
+          │   └── delete button (red outline)
+          └── ace-editor
+              ├── normal mode (VSCode-like)
+              └── readonly mode (grayed background)
+  ```
+- Editor customization:
+  ```css
+  /* Editor states */
+  .ace_editor {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .ace_editor.readonly {
+    background-color: #f8f9fa;
+    opacity: 0.9;
+  }
+  
+  /* Hide cursor in readonly */
+  .ace_editor.readonly .ace_cursor {
+    display: none !important;
+  }
+  ```
 
 ### Form Component (`/src/frontend/js/form.jsx`)
 - Two-step configuration process:
@@ -406,97 +379,6 @@ const [editedConfig, setEditedConfig] = useState(null);
 - State preservation
 - Recovery options
 - Detailed logging
-
-## CSS Architecture
-
-### Layout Structure
-```css
-.config-editor {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
-  background: #f5f5f5;
-}
-
-.config-section {
-  margin-bottom: 40px;
-  padding: 25px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.config-object {
-  margin: 20px 0;
-  padding: 20px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  white-space: pre;
-}
-```
-
-### YAML Styling
-```css
-.yaml-line {
-  display: flex;
-  align-items: center;
-  min-height: 24px;
-}
-
-.yaml-value input {
-  font-family: inherit;
-  font-size: inherit;
-  border: 1px solid transparent;
-  background: transparent;
-  color: #0550ae;
-}
-
-.yaml-field {
-  display: flex;
-  align-items: flex-start;
-}
-
-.yaml-key {
-  color: #008000;  /* VSCode green */
-  margin-right: 8px;
-}
-
-.yaml-indent {
-  width: 16px;  /* 2 spaces */
-}
-
-.yaml-array-item {
-  display: flex;
-  padding-left: 16px;
-}
-```
-
-## Development Guidelines
-
-### Code Organization
-- Components in `/frontend/js/`
-- Styles in `/frontend/css/`
-- Configuration in separate modules
-- Utility functions isolated
-
-### State Management
-- Use React hooks for state
-- Preserve state during navigation
-- Clear separation of concerns
-- Predictable state updates
-
-### Error Handling
-- Validate early
-- Preserve state on error
-- Show clear messages
-- Provide recovery paths
-
-### Testing
-- Unit test core logic
-- Integration test workflow
-- Validate configurations
-- Test edge cases
 
 ## Port Assignment Logic
 

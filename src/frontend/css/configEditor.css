@@ -38,76 +38,121 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
-  padding: 0;
-  background: transparent;
-}
-
-.section-header h3 {
-  margin: 0;
-  color: #2c3e50;
-  font-size: 18px;
-  background: transparent;
-  padding: 0;
-}
-
-.add-object-button {
-  background-color: #27ae60;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.add-object-button:hover {
-  background-color: #219a52;
-}
-
-.config-object {
-  margin: 20px 0;
-  padding: 20px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  position: relative;
-  min-width: 0;
-  overflow-x: auto;
-}
-
-.object-controls {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
   padding-bottom: 15px;
   border-bottom: 1px solid #e9ecef;
 }
 
-.visibility-control {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #2c3e50;
+.section-header h3 {
+  color: #333;
+  margin: 0;
 }
 
-.visibility-control input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-}
-
-.delete-button {
-  background-color: #e74c3c;
+.add-object-button {
+  background: #0550ae;
   color: white;
-  border: none;
+  border: 1px solid #0550ae;
   padding: 6px 12px;
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
 }
 
+.add-object-button:hover {
+  background: #043c7c;
+}
+
+.object-group {
+  margin-bottom: 30px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  padding: 20px;
+}
+
+.object-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 15px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.object-card:last-child {
+  margin-bottom: 0;
+}
+
+.object-controls {
+  background: #f5f5f5;
+  padding: 12px 15px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 1px solid #ddd;
+}
+
+.object-controls label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-weight: 500;
+  color: #444;
+}
+
+.object-controls input[type="checkbox"] {
+  margin: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  border: 1px solid #0550ae;
+  cursor: pointer;
+}
+
+.edit-button,
+.delete-button,
+.save-button {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: 1px solid;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.edit-button {
+  background: #fff;
+  border-color: #0550ae;
+  color: #0550ae;
+}
+
+.edit-button:hover {
+  background: #f0f7ff;
+}
+
+.delete-button {
+  background: #fff;
+  border-color: #dc3545;
+  color: #dc3545;
+  margin-left: auto;
+}
+
 .delete-button:hover {
-  background-color: #c0392b;
+  background: #fff5f5;
+}
+
+.save-button {
+  background: #0550ae;
+  border-color: #0550ae;
+  color: white;
+  padding: 8px 16px;
+  font-size: 16px;
+  margin-top: 20px;
+}
+
+.save-button:hover {
+  background: #043c7c;
 }
 
 .yaml-field {
@@ -209,18 +254,25 @@
   background-color: #7f8c8d;
 }
 
-.save-button {
-  background-color: #3498db;
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 4px;
-  cursor: pointer;
+/* Ace Editor Customizations */
+.ace_editor {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
   font-size: 14px;
+  line-height: 1.5;
+  padding: 10px 0;
 }
 
-.save-button:hover {
-  background-color: #2980b9;
+.ace_editor.readonly {
+  background-color: #f8f9fa;
+  opacity: 0.9;
+}
+
+.ace_editor.readonly .ace_cursor {
+  display: none !important;
+}
+
+.ace_editor.readonly .ace_gutter {
+  background-color: #f0f0f0;
 }
 
 /* Modal Styles */

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { generateConfig, generateSwitchName } from './configGenerator';
 import { SwitchProfileManager } from './switchProfileManager';
-import { ConfigEditor } from './configEditor';
+import ConfigEditor from './configEditor';
 import jsyaml from 'js-yaml';
 import { PortAllocationRules } from './portAllocationRules.js';
 

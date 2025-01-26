@@ -1,4 +1,8 @@
 import React, { useState } from 'react';
+import AceEditor from 'react-ace';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/theme-github';
+import yaml from 'js-yaml';
 import '../css/configEditor.css';
 
 // Templates for new objects
@@ -6,23 +10,26 @@ const objectTemplates = {
   IPv4Namespace: {
     apiVersion: 'vpc.githedgehog.com/v1beta1',
     kind: 'IPv4Namespace',
-    metadata: {
-      name: ''
-    },
+    metadata: { name: '' },
+    spec: { subnets: [''] }
+  },
+  VLANNamespace: {
+    apiVersion: 'vpc.githedgehog.com/v1beta1',
+    kind: 'VLANNamespace',
+    metadata: { name: '' },
     spec: {
-      subnets: ['']
+      ranges: [{
+        from: '',
+        to: ''
+      }]
     }
   },
   Switch: {
     apiVersion: 'wiring.githedgehog.com/v1beta1',
     kind: 'Switch',
-    metadata: {
-      name: ''
-    },
+    metadata: { name: '' },
     spec: {
-      boot: {
-        mac: ''
-      },
+      boot: { mac: '' },
       profile: '',
       role: '',
       description: '',
@@ -33,278 +40,177 @@ const objectTemplates = {
   Connection: {
     apiVersion: 'wiring.githedgehog.com/v1beta1',
     kind: 'Connection',
-    metadata: {
-      name: ''
-    },
+    metadata: { name: '' },
     spec: {
       fabric: {
         links: [{
-          spine: {
-            port: ''
-          },
-          leaf: {
-            port: ''
-          }
+          spine: { port: '' },
+          leaf: { port: '' }
         }]
       }
     }
   }
 };
 
-const renderIndent = (depth) => {
-  return Array(depth).fill().map((_, i) => (
-    <div key={i} className="yaml-indent" />
-  ));
-};
-
-const renderValue = (value, path, onChange, depth = 0) => {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return <span className="yaml-empty-object">[]</span>;
-    }
-    return (
-      <div className="yaml-array">
-        {value.map((item, index) => (
-          <div key={index} className="yaml-array-item">
-            <span className="yaml-array-bullet">-</span>
-            <div className="yaml-array-content">
-              {typeof item === 'object' ? 
-                renderObject(item, `${path}[${index}]`, onChange, depth + 1) :
-                renderValue(item, `${path}[${index}]`, onChange, depth + 1)
-              }
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (typeof value === 'object') {
-    if (Object.keys(value).length === 0) {
-      return <span className="yaml-empty-object">{"{}"}</span>;
-    }
-    return renderObject(value, path, onChange, depth);
-  }
-
-  // Special handling for CIDR notation in IPv4Namespace
-  if (path.includes('spec.subnets')) {
-    return (
-      <span className="yaml-value">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(path, e.target.value)}
-          className="cidr-input"
-          placeholder="e.g., 10.10.0.0/16"
-        />
-      </span>
-    );
-  }
-
-  // Special handling for port values in Connection objects
-  if (typeof value === 'string' && path.includes('port')) {
-    return (
-      <span className="yaml-value">
-        <input
-          type="text"
-          value={value}
-          onChange={(e) => onChange(path, e.target.value)}
-          className="port-input"
-          placeholder="e.g., spine-1/Ethernet1"
-        />
-      </span>
-    );
-  }
-
-  return (
-    <span className="yaml-value">
-      <input
-        type="text"
-        value={value}
-        onChange={(e) => onChange(path, e.target.value)}
-      />
-    </span>
-  );
-};
-
-const renderObject = (obj, basePath = '', onChange, depth = 0) => {
-  if (!obj || typeof obj !== 'object') return null;
-
-  // Order of fields in YAML, excluding _isVisible
-  const orderedKeys = [
-    'apiVersion',
-    'kind',
-    'metadata',
-    'spec',
-    ...Object.keys(obj).filter(key => 
-      !['apiVersion', 'kind', 'metadata', 'spec', '_isVisible'].includes(key)
-    )
-  ].filter(key => obj.hasOwnProperty(key) && key !== '_isVisible');
-
-  return (
-    <div className="yaml-object">
-      {orderedKeys.map(key => {
-        const value = obj[key];
-        const path = basePath ? `${basePath}.${key}` : key;
-        
-        return (
-          <div key={key} className="yaml-field">
-            {renderIndent(depth)}
-            <span className="yaml-key">{key}:</span>
-            {renderValue(value, path, onChange, depth + 1)}
-          </div>
-        );
-      })}
-    </div>
-  );
-};
-
-export function ConfigEditor({ configs, onSave }) {
-  // Group configs by kind if they're in array format
+const ConfigEditor = ({ configs, onSave }) => {
+  // Group configs by kind, adding _isVisible and _isEditing flags
   const [objects, setObjects] = useState(() => {
-    const groupedConfigs = Array.isArray(configs)
-      ? configs.reduce((acc, config) => {
-          if (!acc[config.kind]) {
-            acc[config.kind] = [];
-          }
-          acc[config.kind].push({ ...config, _isVisible: true });
-          return acc;
-        }, {})
-      : Object.entries(configs).reduce((acc, [kind, items]) => {
-          acc[kind] = items.map(item => ({
-            ...item,
-            _isVisible: true
-          }));
-          return acc;
-        }, {});
-    return groupedConfigs;
+    const grouped = {};
+    configs.forEach(config => {
+      const kind = config.kind;
+      if (!grouped[kind]) grouped[kind] = [];
+      grouped[kind].push({
+        ...config,
+        _isVisible: true,
+        _isEditing: false,
+        _yamlText: yaml.dump(config)
+      });
+    });
+    return grouped;
   });
 
-  const handleObjectChange = (kind, index, path, value) => {
-    setObjects(prev => {
-      const newObjects = { ...prev };
-      const objectToUpdate = { ...newObjects[kind][index] };
-      
-      // Handle nested path updates
-      const pathParts = path.split('.');
-      let current = objectToUpdate;
-      
-      for (let i = 0; i < pathParts.length - 1; i++) {
-        const part = pathParts[i];
-        if (part.includes('[')) {
-          // Handle array paths
-          const [arrayName, indexStr] = part.split('[');
-          const arrayIndex = parseInt(indexStr);
-          current = current[arrayName][arrayIndex];
-        } else {
-          current = current[part];
-        }
-      }
-      
-      current[pathParts[pathParts.length - 1]] = value;
-      newObjects[kind][index] = objectToUpdate;
-      
-      return newObjects;
-    });
+  const handleToggleVisibility = (kind, index) => {
+    setObjects(prev => ({
+      ...prev,
+      [kind]: prev[kind].map((obj, i) => 
+        i === index ? { ...obj, _isVisible: !obj._isVisible } : obj
+      )
+    }));
   };
 
-  const toggleVisibility = (kind, index) => {
-    setObjects(prev => {
-      const newObjects = { ...prev };
-      newObjects[kind][index] = {
-        ...newObjects[kind][index],
-        _isVisible: !newObjects[kind][index]._isVisible
-      };
-      return newObjects;
-    });
+  const handleToggleEdit = (kind, index) => {
+    setObjects(prev => ({
+      ...prev,
+      [kind]: prev[kind].map((obj, i) => 
+        i === index ? { ...obj, _isEditing: !obj._isEditing } : obj
+      )
+    }));
   };
 
-  const addObject = (kind) => {
-    setObjects(prev => {
-      const newObjects = { ...prev };
-      newObjects[kind] = [
-        ...newObjects[kind],
+  const handleYamlChange = (kind, index, newValue) => {
+    try {
+      // Parse YAML to ensure it's valid
+      const parsed = yaml.load(newValue);
+      setObjects(prev => ({
+        ...prev,
+        [kind]: prev[kind].map((obj, i) => 
+          i === index ? {
+            ...parsed,
+            _isVisible: obj._isVisible,
+            _isEditing: obj._isEditing,
+            _yamlText: newValue
+          } : obj
+        )
+      }));
+    } catch (e) {
+      // If YAML is invalid, just update the text without parsing
+      setObjects(prev => ({
+        ...prev,
+        [kind]: prev[kind].map((obj, i) => 
+          i === index ? { ...obj, _yamlText: newValue } : obj
+        )
+      }));
+    }
+  };
+
+  const handleDelete = (kind, index) => {
+    setObjects(prev => ({
+      ...prev,
+      [kind]: prev[kind].filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddObject = (kind) => {
+    const template = objectTemplates[kind];
+    setObjects(prev => ({
+      ...prev,
+      [kind]: [
         {
-          ...objectTemplates[kind],
-          _isVisible: true
-        }
-      ];
-      return newObjects;
-    });
-  };
-
-  const deleteObject = (kind, index) => {
-    setObjects(prev => {
-      const newObjects = { ...prev };
-      newObjects[kind] = newObjects[kind].filter((_, i) => i !== index);
-      return newObjects;
-    });
+          ...template,
+          _isVisible: true,
+          _isEditing: false,
+          _yamlText: yaml.dump(template)
+        },
+        ...prev[kind]
+      ]
+    }));
   };
 
   const handleSave = () => {
-    // Convert objects back to array format, removing _isVisible
+    // Convert objects back to array format, removing internal fields
     const cleanedConfigs = Object.entries(objects)
       .reduce((acc, [kind, items]) => [
         ...acc,
         ...items
           .filter(item => item._isVisible)
-          .map(({ _isVisible, ...item }) => item)
+          .map(({ _isVisible, _isEditing, _yamlText, ...item }) => item)
       ], []);
     onSave(cleanedConfigs);
   };
 
   return (
     <div className="config-editor">
-      <h2>Configuration Editor</h2>
       {Object.entries(objects).map(([kind, items]) => (
-        <div key={kind} className="config-section">
+        <div key={kind} className="object-group">
           <div className="section-header">
-            <h3>{kind}</h3>
+            <h3>{kind} Objects</h3>
             <button
               className="add-object-button"
-              onClick={() => addObject(kind)}
+              onClick={() => handleAddObject(kind)}
             >
               Add {kind}
             </button>
           </div>
-          
           {items.map((obj, index) => (
-            <div key={index} className="config-object">
+            <div key={index} className="object-card">
               <div className="object-controls">
-                <div className="visibility-control">
+                <label>
                   <input
                     type="checkbox"
                     checked={obj._isVisible}
-                    onChange={() => toggleVisibility(kind, index)}
+                    onChange={() => handleToggleVisibility(kind, index)}
                   />
-                  <span>Show/Hide</span>
-                </div>
+                  Include in Configuration
+                </label>
                 <button
+                  onClick={() => handleToggleEdit(kind, index)}
+                  className="edit-button"
+                >
+                  {obj._isEditing ? 'Done' : 'Edit'}
+                </button>
+                <button
+                  onClick={() => handleDelete(kind, index)}
                   className="delete-button"
-                  onClick={() => deleteObject(kind, index)}
                 >
                   Delete
                 </button>
               </div>
-              
-              {obj._isVisible && renderObject(obj, '', (path, value) => 
-                handleObjectChange(kind, index, path, value),
-                0
-              )}
+              <AceEditor
+                mode="yaml"
+                theme="github"
+                value={obj._yamlText}
+                onChange={(newValue) => handleYamlChange(kind, index, newValue)}
+                readOnly={!obj._isEditing}
+                width="100%"
+                minLines={5}
+                maxLines={30}
+                showPrintMargin={false}
+                showGutter={true}
+                highlightActiveLine={obj._isEditing}
+                className={obj._isEditing ? '' : 'readonly'}
+                setOptions={{
+                  showLineNumbers: true,
+                  tabSize: 2,
+                  useWorker: false
+                }}
+              />
             </div>
           ))}
         </div>
       ))}
-      
-      <div className="button-group">
-        <button className="save-button" onClick={handleSave}>
-          Save Configuration
-        </button>
-      </div>
+      <button onClick={handleSave} className="save-button">Save</button>
     </div>
   );
-}
+};
+
+export default ConfigEditor;

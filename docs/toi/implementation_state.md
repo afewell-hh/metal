@@ -23,10 +23,18 @@
 - Validation for port counts and distributions
 
 ### User Interface
-- YAML-style configuration editor with exact YAML structure matching
+- YAML editor-based configuration editor with:
+  * Readonly by default with edit toggle
+  * VSCode-like styling and colors
+  * Proper indentation (2 spaces per level)
+  * Full YAML structure editing
+  * Syntax validation
+  * Line numbers and highlighting
 - Card-based layout for object types
-- Visual section separation
-- Editable fields within YAML structure
+- Visual section separation with:
+  * Section headers with "Add Object" buttons
+  * Light gray section backgrounds
+  * White object cards with shadows
 - Download generated configuration
 - Navigation between all steps
 - VSCode-like styling for YAML keys
@@ -90,26 +98,63 @@
 - Coordinates with ConfigGenerator
 
 ### ConfigEditor Component
+- Uses react-ace for YAML editing
 - Renders K8s objects in exact YAML format
-- Provides inline editing capability
+- Provides inline YAML editing with edit/readonly toggle
 - Maintains object structure and order
 - Groups objects by kind
 - Handles both array and object input formats
 - Uses internal state for visibility (_isVisible)
-- Preserves proper YAML field order (apiVersion, kind, metadata, spec)
-- Special input handling for CIDR and port fields
-- Object templates with required fields
-- Path-based state updates for nested objects
-- Immutable state management
-- Array format conversion for save handler
-- Validation for:
-  * CIDR notation in IPv4Namespace
-  * Port names in Connection objects
-  * Required fields in Switch objects
-- Empty state handling:
-  * Empty objects shown as "{}"
-  * Empty arrays shown as "[]"
-  * Required fields marked visually
+- Preserves proper YAML field order
+- Adds new objects to top of sections
+- Object templates:
+  ```javascript
+  {
+    IPv4Namespace: {
+      apiVersion: 'vpc.githedgehog.com/v1beta1',
+      kind: 'IPv4Namespace',
+      metadata: { name: '' },
+      spec: { subnets: [''] }
+    },
+    VLANNamespace: {
+      apiVersion: 'vpc.githedgehog.com/v1beta1',
+      kind: 'VLANNamespace',
+      metadata: { name: '' },
+      spec: {
+        ranges: [{
+          from: '',
+          to: ''
+        }]
+      }
+    },
+    Switch: {
+      apiVersion: 'wiring.githedgehog.com/v1beta1',
+      kind: 'Switch',
+      metadata: { name: '' },
+      spec: {
+        boot: { mac: '' },
+        profile: '',
+        role: '',
+        description: '',
+        portBreakouts: {},
+        serial: ''
+      }
+    },
+    Connection: {
+      apiVersion: 'wiring.githedgehog.com/v1beta1',
+      kind: 'Connection',
+      metadata: { name: '' },
+      spec: {
+        fabric: {
+          links: [{
+            spine: { port: '' },
+            leaf: { port: '' }
+          }]
+        }
+      }
+    }
+  }
+  ```
 
 ### ConfigGenerator
 - Generates K8s objects
@@ -240,3 +285,8 @@ Generated objects follow Hedgehog Wiring Diagram API:
 - Integration tests for workflow
 - Validation tests for configs
 - UI component tests
+
+## Dependencies
+- react-ace: YAML editor component
+- ace-builds: Core ACE editor
+- js-yaml: YAML parsing and validation

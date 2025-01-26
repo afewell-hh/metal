@@ -11,8 +11,10 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "ace-builds": "^1.37.5",
     "js-yaml": "^4.1.0",
     "react": "^18.2.0",
+    "react-ace": "^13.0.0",
     "react-dom": "^18.2.0",
     "typescript": "^5.0.0"
   },
