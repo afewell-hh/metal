@@ -401,9 +401,6 @@ export class PortAssignmentManager {
             const networkConfig = this.generateNetworkConfig('spine', i);
             configs.spines.push({
                 ...networkConfig,
-                portGroupSpeeds: {
-                    "1": "10G"  // Match known-good config speed
-                },
                 portBreakouts: {},  // No breakouts by default for spine switches
                 ports: {
                     fabric: Array(uplinksPerLeaf * numLeafSwitches).fill(null).map((_, j) => {
@@ -413,8 +410,7 @@ export class PortAssignmentManager {
                         const uplinkIndex = j % uplinksPerLeaf;
                         const portNumber = leafIndex * uplinksPerLeaf * numSpineSwitches + uplinkIndex * numSpineSwitches + i + 1;
                         return {
-                            id: `${portNumber}`,
-                            speed: "10G"
+                            id: `${portNumber}`
                         };
                     })
                 }
@@ -426,20 +422,14 @@ export class PortAssignmentManager {
             const networkConfig = this.generateNetworkConfig('leaf', i);
             configs.leaves.push({
                 ...networkConfig,
-                portGroupSpeeds: {
-                    "1": "10G",  // Match known-good config speed
-                    "2": "10G"   // Match known-good config speed
-                },
                 portBreakouts: {},  // Add breakouts if needed
                 ports: {
                     fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => ({
                         // Use 49, 51, 53, 55 for fabric ports
-                        id: `${49 + j * 2}`,
-                        speed: "10G"
+                        id: `${49 + j * 2}`
                     })),
                     server: Array(totalServerPorts).fill(null).map((_, j) => ({
-                        id: `${j + 1}`,
-                        speed: "10G"
+                        id: `${j + 1}`
                     }))
                 }
             });

@@ -89,7 +89,6 @@ class ConfigGenerator {
             profile: normalizedModel,
             role,
             description: `${rolePrefix}-${switchNumber}`,
-            portGroupSpeeds: config.portGroupSpeeds,
             portBreakouts: config.portBreakouts || {}
         });
     }
