@@ -58,7 +58,8 @@ class ConfigGenerator {
             apiVersion,
             kind,
             metadata: {
-                name
+                generateName: name,
+                name: name
             },
             spec
         };
@@ -125,10 +126,10 @@ class ConfigGenerator {
                     
                     links.push({
                         spine: {
-                            port: `${spine.name}/E1/${spinePort}`
+                            port: `${spine.metadata.name}/E1/${spinePort}`
                         },
                         leaf: {
-                            port: `${leaf.name}/E1/${leafPort}`
+                            port: `${leaf.metadata.name}/E1/${leafPort}`
                         }
                     });
                 }
@@ -136,7 +137,7 @@ class ConfigGenerator {
                 if (links.length > 0) {
                     connections.push(
                         this.createK8sObject('Connection', 
-                            `${spine.name}--fabric--${leaf.name}`,
+                            `${spine.metadata.name}--fabric--${leaf.metadata.name}`,
                             { fabric: { links } }
                         )
                     );
