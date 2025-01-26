@@ -37,39 +37,45 @@ export class PortAssignmentManager {
             errors.push(`Uplinks per leaf (${uplinksPerLeaf}) must be >= number of spine switches (${spineSwitches})`);
         }
 
-        // 3. Port capacity validation for leaves
-        const leafProfile = this.switchProfileManager.getEffectiveProfile(leafModel);
-        const leafFabricPorts = this.switchProfileManager.getValidPorts(leafModel, 'fabric');
-        const leafServerPorts = this.switchProfileManager.getValidPorts(leafModel, 'server');
+        try {
+            // 3. Port capacity validation for leaves
+            const leafFabricPorts = this.switchProfileManager.getValidPorts(leafModel, 'fabric');
+            const leafServerPorts = this.switchProfileManager.getValidPorts(leafModel, 'server');
 
-        // Calculate ports needed per leaf
-        const serverPortsPerLeaf = Math.ceil(totalServerPorts / leafSwitches);
-        const totalPortsNeededPerLeaf = uplinksPerLeaf + serverPortsPerLeaf;
+            if (!leafFabricPorts || leafFabricPorts.length === 0) {
+                errors.push(`No valid fabric ports found for leaf model ${leafModel}`);
+            }
+            if (!leafServerPorts || leafServerPorts.length === 0) {
+                errors.push(`No valid server ports found for leaf model ${leafModel}`);
+            }
 
-        // Get available ports considering breakouts
-        const availablePortsPerLeaf = this.calculateAvailablePorts(leafProfile, leafFabricPorts, leafServerPorts);
+            // Calculate ports needed per leaf
+            const serverPortsPerLeaf = Math.ceil(totalServerPorts / leafSwitches);
 
-        if (totalPortsNeededPerLeaf > availablePortsPerLeaf.totalLogicalPorts) {
-            errors.push(
-                `Leaf switch ${leafModel} cannot support ${uplinksPerLeaf} uplinks and ${serverPortsPerLeaf} server ports. ` +
-                `Maximum available ports: ${availablePortsPerLeaf.totalLogicalPorts}`
-            );
-        }
+            if (uplinksPerLeaf > leafFabricPorts.length) {
+                errors.push(`Too many uplinks requested (${uplinksPerLeaf}) for leaf model ${leafModel}. Maximum available: ${leafFabricPorts.length}`);
+            }
 
-        // 4. Port capacity validation for spines
-        const spineProfile = this.switchProfileManager.getEffectiveProfile(spineModel);
-        const spineFabricPorts = this.switchProfileManager.getValidPorts(spineModel, 'fabric');
-        
-        // Calculate downlinks needed per spine
-        const downlinksPerSpine = leafSwitches * (uplinksPerLeaf / spineSwitches);
-        
-        // Validate spine has enough ports
-        const availableSpinePorts = this.calculateAvailablePorts(spineProfile, spineFabricPorts, []);
-        if (downlinksPerSpine > availableSpinePorts.totalLogicalPorts) {
-            errors.push(
-                `Spine switch ${spineModel} cannot support ${downlinksPerSpine} downlinks. ` +
-                `Maximum available ports: ${availableSpinePorts.totalLogicalPorts}`
-            );
+            if (serverPortsPerLeaf > leafServerPorts.length) {
+                errors.push(`Too many server ports requested per leaf (${serverPortsPerLeaf}) for leaf model ${leafModel}. Maximum available: ${leafServerPorts.length}`);
+            }
+
+            // 4. Port capacity validation for spines
+            const spineFabricPorts = this.switchProfileManager.getValidPorts(spineModel, 'fabric');
+            
+            if (!spineFabricPorts || spineFabricPorts.length === 0) {
+                errors.push(`No valid fabric ports found for spine model ${spineModel}`);
+            }
+
+            // Calculate ports needed per spine
+            const portsPerSpine = Math.ceil((leafSwitches * uplinksPerLeaf) / spineSwitches);
+            
+            if (portsPerSpine > spineFabricPorts.length) {
+                errors.push(`Too many ports required per spine (${portsPerSpine}) for model ${spineModel}. Maximum available: ${spineFabricPorts.length}`);
+            }
+
+        } catch (error) {
+            errors.push(`Error validating port configuration: ${error.message}`);
         }
 
         return {

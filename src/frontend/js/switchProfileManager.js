@@ -158,19 +158,13 @@ export class SwitchProfileManager {
 
     // Get the effective profile for a switch model
     getEffectiveProfile(model) {
-        if (!this._initialized) {
-            throw new Error('SwitchProfileManager not initialized');
-        }
-
-        const profile = this.profiles.get(model);
-        if (!profile) {
+        if (!this.profiles.has(model)) {
             throw new Error(`Profile not found for model: ${model}`);
         }
-
-        return profile;
+        return this.profiles.get(model);
     }
 
-    // Get valid ports for a specific role
+    // Get valid ports for a given role
     getValidPorts(model, role) {
         if (!this._initialized) {
             throw new Error('SwitchProfileManager not initialized');
