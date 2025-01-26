@@ -2,8 +2,9 @@
  * Manages port assignment and validation logic for fabric designs
  */
 export class PortAssignmentManager {
-    constructor(switchProfileManager) {
+    constructor(switchProfileManager, portRules) {
         this.switchProfileManager = switchProfileManager;
+        this.portRules = portRules;
     }
 
     /**

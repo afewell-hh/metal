@@ -1,9 +1,9 @@
 import { PortAssignmentManager } from './portAssignmentManager';
 
 class ConfigGenerator {
-    constructor(switchProfileManager) {
+    constructor(switchProfileManager, portRules) {
         this.switchProfileManager = switchProfileManager;
-        this.portAssignmentManager = new PortAssignmentManager(switchProfileManager);
+        this.portAssignmentManager = new PortAssignmentManager(switchProfileManager, portRules);
     }
 
     /**
@@ -356,7 +356,9 @@ function generateVPCLoopback(switchName) {
 }
 
 export async function generateConfig(formData) {
-    const configGenerator = new ConfigGenerator(new PortAllocationRules());
+    const portRules = new PortAllocationRules();
+    await portRules.initialize();
+    const configGenerator = new ConfigGenerator(new PortAllocationRules(), portRules);
     return configGenerator.generateConfig(formData);
 }
 
