@@ -52,18 +52,33 @@ class ConfigGenerator {
     }
 
     async generateConfig(formData) {
+        console.log('Received form data:', formData);
+
+        // Extract topology data
+        const {
+            model: leafModel,
+            count: leafCount,
+            fabricPortsPerLeaf,
+            totalServerPorts
+        } = formData.topology.leaves;
+
+        const {
+            model: spineModel,
+            count: spineCount
+        } = formData.topology.spines;
+
         // Normalize model names
-        const leafModel = this.normalizeModelName(formData.topology.leaves.model);
-        const spineModel = this.normalizeModelName(formData.topology.spines.model);
+        const normalizedLeafModel = this.normalizeModelName(leafModel);
+        const normalizedSpineModel = this.normalizeModelName(spineModel);
 
         // Validate the fabric design
         const validation = await this.portAssignmentManager.validateFabricDesign({
-            leafSwitches: formData.topology.leaves.count,
-            spineSwitches: formData.topology.spines.count,
-            uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf,
-            totalServerPorts: formData.topology.leaves.totalServerPorts,
-            leafModel,
-            spineModel
+            leafSwitches: leafCount,
+            spineSwitches: spineCount,
+            uplinksPerLeaf: fabricPortsPerLeaf,
+            totalServerPorts,
+            leafModel: normalizedLeafModel,
+            spineModel: normalizedSpineModel
         });
 
         if (!validation.isValid) {
@@ -72,12 +87,12 @@ class ConfigGenerator {
 
         // Generate port assignments
         const portAssignments = await this.portAssignmentManager.generatePortAssignments({
-            leafSwitches: formData.topology.leaves.count,
-            spineSwitches: formData.topology.spines.count,
-            uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf,
-            totalServerPorts: formData.topology.leaves.totalServerPorts,
-            leafModel,
-            spineModel
+            leafSwitches: leafCount,
+            spineSwitches: spineCount,
+            uplinksPerLeaf: fabricPortsPerLeaf,
+            totalServerPorts,
+            leafModel: normalizedLeafModel,
+            spineModel: normalizedSpineModel
         });
 
         const configs = [];
@@ -100,7 +115,7 @@ class ConfigGenerator {
                     namespace: 'default'
                 },
                 spec: {
-                    model: leafModel,
+                    model: normalizedLeafModel,
                     role: 'leaf',
                     serial: formData.switchSerials[leaf.switchId],
                     ports: {
@@ -129,7 +144,7 @@ class ConfigGenerator {
                     namespace: 'default'
                 },
                 spec: {
-                    model: spineModel,
+                    model: normalizedSpineModel,
                     role: 'spine',
                     serial: formData.switchSerials[spine.switchId],
                     ports: {
@@ -145,9 +160,9 @@ class ConfigGenerator {
         // Add fabric connections
         portAssignments.leaves.forEach((leaf, leafIdx) => {
             leaf.ports.fabric.forEach((fabricPort, portIdx) => {
-                const spineIdx = Math.floor(portIdx / formData.topology.leaves.fabricPortsPerLeaf);
+                const spineIdx = Math.floor(portIdx / fabricPortsPerLeaf);
                 const spine = portAssignments.spines[spineIdx];
-                const spinePortIdx = leafIdx % formData.topology.spines.count;
+                const spinePortIdx = leafIdx % spineCount;
                 const spinePort = spine.ports.fabric[spinePortIdx];
 
                 configs.push(generateFabricConnection(
