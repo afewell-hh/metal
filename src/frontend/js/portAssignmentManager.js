@@ -112,7 +112,6 @@ export class PortAssignmentManager {
         // Get valid ports for leaf switches
         const leafFabricPorts = this.switchProfileManager.getValidPorts(leafModel, 'fabric');
         const leafServerPorts = this.switchProfileManager.getValidPorts(leafModel, 'server');
-        const leafProfile = this.switchProfileManager.getEffectiveProfile(leafModel);
 
         // Calculate server ports per leaf
         const serverPortsPerLeaf = Math.ceil(totalServerPorts / leafSwitches);
@@ -128,22 +127,32 @@ export class PortAssignmentManager {
                 }
             };
 
-            // Assign fabric ports first
-            const fabricPorts = this.assignPorts(leafFabricPorts, uplinksPerLeaf, leafProfile, '100G');
-            leafAssignment.ports.fabric = fabricPorts;
+            // Assign fabric ports
+            const fabricPortStart = parseInt(leafFabricPorts[0]);
+            for (let i = 0; i < uplinksPerLeaf; i++) {
+                const portId = (fabricPortStart + i).toString();
+                leafAssignment.ports.fabric.push({
+                    id: portId,
+                    speed: '100G'
+                });
+            }
 
-            // Then assign server ports from remaining available ports
-            const usedPorts = new Set(fabricPorts.map(p => p.id));
-            const availableServerPorts = leafServerPorts.filter(port => !usedPorts.has(port));
-            leafAssignment.ports.server = this.assignPorts(availableServerPorts, serverPortsPerLeaf, leafProfile, '25G');
+            // Assign server ports
+            const serverPortStart = parseInt(leafServerPorts[0]);
+            for (let i = 0; i < serverPortsPerLeaf; i++) {
+                const portId = (serverPortStart + i).toString();
+                leafAssignment.ports.server.push({
+                    id: portId,
+                    speed: '25G'
+                });
+            }
 
             assignments.leaves.push(leafAssignment);
         }
 
         // Get valid ports for spine switches
         const spineFabricPorts = this.switchProfileManager.getValidPorts(spineModel, 'fabric');
-        const spineProfile = this.switchProfileManager.getEffectiveProfile(spineModel);
-        const downlinksPerSpine = leafSwitches * (uplinksPerLeaf / spineSwitches);
+        const downlinksPerSpine = Math.ceil(leafSwitches * (uplinksPerLeaf / spineSwitches));
 
         // Generate assignments for each spine switch
         for (let spineIdx = 0; spineIdx < spineSwitches; spineIdx++) {
@@ -151,9 +160,20 @@ export class PortAssignmentManager {
                 switchId: `spine${spineIdx + 1}`,
                 model: spineModel,
                 ports: {
-                    fabric: this.assignPorts(spineFabricPorts, downlinksPerSpine, spineProfile, '100G')
+                    fabric: []
                 }
             };
+
+            // Assign fabric ports
+            const fabricPortStart = parseInt(spineFabricPorts[0]);
+            for (let i = 0; i < downlinksPerSpine; i++) {
+                const portId = (fabricPortStart + i).toString();
+                spineAssignment.ports.fabric.push({
+                    id: portId,
+                    speed: '100G'
+                });
+            }
+
             assignments.spines.push(spineAssignment);
         }
 
