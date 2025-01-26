@@ -405,14 +405,21 @@ export class PortAssignmentManager {
                 ports: {
                     fabric: Array(uplinksPerLeaf * numLeafSwitches).fill(null).map((_, j) => {
                         // Calculate port number based on leaf index and uplink number
-                        // Each leaf gets a dedicated set of ports on the spine
                         const leafIndex = Math.floor(j / uplinksPerLeaf);
                         const uplinkIndex = j % uplinksPerLeaf;
-                        const portNumber = leafIndex * uplinksPerLeaf * numSpineSwitches + uplinkIndex * numSpineSwitches + i + 1;
+                        
+                        // Calculate which spine this uplink should connect to
+                        // For even distribution, we use modulo to rotate through spines
+                        if (uplinkIndex % numSpineSwitches !== i) {
+                            return null; // Skip this port, it belongs to another spine
+                        }
+                        
+                        // Calculate port number for this spine
+                        const portNumber = leafIndex * uplinksPerLeaf + uplinkIndex + 1;
                         return {
                             id: `${portNumber}`
                         };
-                    })
+                    }).filter(port => port !== null) // Remove null entries
                 }
             });
         }
@@ -424,10 +431,14 @@ export class PortAssignmentManager {
                 ...networkConfig,
                 portBreakouts: {},  // Add breakouts if needed
                 ports: {
-                    fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => ({
-                        // Use 49, 51, 53, 55 for fabric ports
-                        id: `${49 + j * 2}`
-                    })),
+                    fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => {
+                        // Calculate which spine this uplink should connect to
+                        const spineIndex = j % numSpineSwitches;
+                        return {
+                            // Use 49, 51, 53, 55 for fabric ports
+                            id: `${49 + j * 2}`
+                        };
+                    }),
                     server: Array(totalServerPorts).fill(null).map((_, j) => ({
                         id: `${j + 1}`
                     }))

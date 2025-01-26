@@ -89,7 +89,10 @@ class ConfigGenerator {
             profile: normalizedModel,
             role,
             description: `${rolePrefix}-${switchNumber}`,
-            portBreakouts: config.portBreakouts || {}
+            portBreakouts: config.portBreakouts || {},
+            boot: {
+                serial: config.serial || "TODO"
+            }
         });
     }
 
