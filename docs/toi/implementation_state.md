@@ -63,6 +63,9 @@
 - Need to add loading states for async operations
 - Need to add confirmation for destructive actions
 - Need to improve responsive design for very narrow screens
+- Need to implement field-level validation with error messages
+- Need to add visual indicators for required fields
+- Need to improve empty state handling for arrays
 
 ## Critical Dependencies
 
@@ -95,6 +98,18 @@
 - Uses internal state for visibility (_isVisible)
 - Preserves proper YAML field order (apiVersion, kind, metadata, spec)
 - Special input handling for CIDR and port fields
+- Object templates with required fields
+- Path-based state updates for nested objects
+- Immutable state management
+- Array format conversion for save handler
+- Validation for:
+  * CIDR notation in IPv4Namespace
+  * Port names in Connection objects
+  * Required fields in Switch objects
+- Empty state handling:
+  * Empty objects shown as "{}"
+  * Empty arrays shown as "[]"
+  * Required fields marked visually
 
 ### ConfigGenerator
 - Generates K8s objects

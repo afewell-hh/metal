@@ -148,6 +148,73 @@ Metal is a configuration generation tool for network fabric designs. It takes us
      - Groups objects by kind internally
      - Returns array of visible objects
      - Strips internal state on save
+   - Object Templates:
+     ```javascript
+     // Templates for new objects
+     const objectTemplates = {
+       IPv4Namespace: {
+         apiVersion: 'vpc.githedgehog.com/v1beta1',
+         kind: 'IPv4Namespace',
+         metadata: { name: '' },
+         spec: { subnets: [''] }
+       },
+       Switch: {
+         apiVersion: 'wiring.githedgehog.com/v1beta1',
+         kind: 'Switch',
+         metadata: { name: '' },
+         spec: {
+           boot: { mac: '' },
+           profile: '',
+           role: '',
+           description: '',
+           portBreakouts: {},
+           serial: ''
+         }
+       },
+       Connection: {
+         apiVersion: 'wiring.githedgehog.com/v1beta1',
+         kind: 'Connection',
+         metadata: { name: '' },
+         spec: {
+           fabric: {
+             links: [{
+               spine: { port: '' },
+               leaf: { port: '' }
+             }]
+           }
+         }
+       }
+     };
+     ```
+   - Object Validation:
+     - IPv4Namespace: CIDR notation required for subnets
+     - Switch: profile, role, and description are required
+     - Connection: port names must follow format "device/port"
+   - Field Handling:
+     - Empty objects displayed as "{}"
+     - Empty arrays displayed as "[]"
+     - Special input fields for:
+       * CIDR notation with validation
+       * Port names with format checking
+       * Required fields with visual indicators
+   - State Flow:
+     ```javascript
+     // Adding new object
+     1. User clicks "Add [Kind]"
+     2. Template is cloned with _isVisible: true
+     3. Added to objects[kind] array
+     
+     // Editing object
+     1. User modifies input field
+     2. Path-based update (e.g., "spec.boot.mac")
+     3. Immutable state update preserves structure
+     
+     // Saving objects
+     1. Filter objects by _isVisible
+     2. Strip _isVisible from each object
+     3. Convert to array format
+     4. Pass to onSave handler
+     ```
 
 ### Form Component (`/src/frontend/js/form.jsx`)
 - Two-step configuration process:
