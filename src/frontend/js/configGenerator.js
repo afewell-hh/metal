@@ -47,11 +47,8 @@ class ConfigGenerator {
         return baseConfig;
     }
 
-    // Normalize model name to use underscores instead of dashes
+    // Normalize model name to match profile format (replace hyphens with underscores)
     normalizeModelName(model) {
-        if (!model) {
-            throw new Error('Model name is required');
-        }
         return model.replace(/-/g, '_');
     }
 
@@ -84,8 +81,9 @@ class ConfigGenerator {
 
     // Generate Switch configuration
     generateSwitch(name, model, role, config) {
+        const normalizedModel = this.normalizeModelName(model);
         return this.createK8sObject('Switch', name, {
-            profile: model,
+            profile: normalizedModel,
             role,
             portGroupSpeeds: config.portGroupSpeeds,
             portBreakouts: config.portBreakouts,

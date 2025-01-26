@@ -372,14 +372,18 @@ export class PortAssignmentManager {
             count: numSpineSwitches
         } = formData.topology.spines;
 
+        // Normalize model names
+        const normalizedLeafModel = leafModel.replace(/-/g, '_');
+        const normalizedSpineModel = spineModel.replace(/-/g, '_');
+
         // Validate the fabric design
         const validation = await this.validateFabricDesign({
             leafSwitches: numLeafSwitches,
             spineSwitches: numSpineSwitches,
             uplinksPerLeaf,
             totalServerPorts,
-            leafModel,
-            spineModel
+            leafModel: normalizedLeafModel,
+            spineModel: normalizedSpineModel
         });
 
         if (!validation.isValid) {
