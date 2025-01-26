@@ -53,15 +53,15 @@ class ConfigGenerator {
 
     async generateConfig(formData) {
         // Normalize model names
-        const leafModel = this.normalizeModelName(formData.leafModel);
-        const spineModel = this.normalizeModelName(formData.spineModel);
+        const leafModel = this.normalizeModelName(formData.topology.leaves.model);
+        const spineModel = this.normalizeModelName(formData.topology.spines.model);
 
         // Validate the fabric design
         const validation = await this.portAssignmentManager.validateFabricDesign({
-            leafSwitches: formData.numLeafSwitches,
-            spineSwitches: formData.numSpineSwitches,
-            uplinksPerLeaf: formData.uplinksPerLeaf,
-            totalServerPorts: formData.totalServerPorts,
+            leafSwitches: formData.topology.leaves.count,
+            spineSwitches: formData.topology.spines.count,
+            uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf,
+            totalServerPorts: formData.topology.leaves.totalServerPorts,
             leafModel,
             spineModel
         });
@@ -72,10 +72,10 @@ class ConfigGenerator {
 
         // Generate port assignments
         const portAssignments = await this.portAssignmentManager.generatePortAssignments({
-            leafSwitches: formData.numLeafSwitches,
-            spineSwitches: formData.numSpineSwitches,
-            uplinksPerLeaf: formData.uplinksPerLeaf,
-            totalServerPorts: formData.totalServerPorts,
+            leafSwitches: formData.topology.leaves.count,
+            spineSwitches: formData.topology.spines.count,
+            uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf,
+            totalServerPorts: formData.topology.leaves.totalServerPorts,
             leafModel,
             spineModel
         });
@@ -145,9 +145,9 @@ class ConfigGenerator {
         // Add fabric connections
         portAssignments.leaves.forEach((leaf, leafIdx) => {
             leaf.ports.fabric.forEach((fabricPort, portIdx) => {
-                const spineIdx = Math.floor(portIdx / formData.uplinksPerLeaf);
+                const spineIdx = Math.floor(portIdx / formData.topology.leaves.fabricPortsPerLeaf);
                 const spine = portAssignments.spines[spineIdx];
-                const spinePortIdx = leafIdx % formData.numSpineSwitches;
+                const spinePortIdx = leafIdx % formData.topology.spines.count;
                 const spinePort = spine.ports.fabric[spinePortIdx];
 
                 configs.push(generateFabricConnection(
