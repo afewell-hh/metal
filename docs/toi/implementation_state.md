@@ -23,12 +23,18 @@
 - Validation for port counts and distributions
 
 ### User Interface
-- YAML-style configuration editor
+- YAML-style configuration editor with exact YAML structure matching
 - Card-based layout for object types
 - Visual section separation
 - Editable fields within YAML structure
 - Download generated configuration
 - Navigation between all steps
+- VSCode-like styling for YAML keys
+- Proper indentation (2 spaces per level)
+- Array items with bullet points
+- Empty object display as "{}"
+- Monospace font for all fields
+- Horizontal scrolling for wide content
 
 ## In Progress Features
 
@@ -56,6 +62,7 @@
 - Need to add form validation error messages
 - Need to add loading states for async operations
 - Need to add confirmation for destructive actions
+- Need to improve responsive design for very narrow screens
 
 ## Critical Dependencies
 
@@ -80,10 +87,14 @@
 - Coordinates with ConfigGenerator
 
 ### ConfigEditor Component
-- Renders K8s objects in YAML format
+- Renders K8s objects in exact YAML format
 - Provides inline editing capability
-- Maintains object structure
+- Maintains object structure and order
 - Groups objects by kind
+- Handles both array and object input formats
+- Uses internal state for visibility (_isVisible)
+- Preserves proper YAML field order (apiVersion, kind, metadata, spec)
+- Special input handling for CIDR and port fields
 
 ### ConfigGenerator
 - Generates K8s objects

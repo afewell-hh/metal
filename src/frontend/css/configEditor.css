@@ -110,102 +110,83 @@
   background-color: #c0392b;
 }
 
-.yaml-line {
+.yaml-field {
   display: flex;
   align-items: flex-start;
-  min-height: 28px;
-  margin: 2px 0;
-  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: visible;
-  width: fit-content;
-  min-width: 100%;
+  min-height: 24px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
 }
 
-.yaml-line.indent-0 { padding-left: 0; }
-.yaml-line.indent-1 { padding-left: 20px; }
-.yaml-line.indent-2 { padding-left: 40px; }
-.yaml-line.indent-3 { padding-left: 60px; }
-.yaml-line.indent-4 { padding-left: 80px; }
-.yaml-line.indent-5 { padding-left: 100px; }
+.yaml-key {
+  color: #008000;  /* VSCode-like green for keys */
+  margin-right: 8px;
+  white-space: nowrap;
+}
+
+.yaml-value {
+  flex: 1;
+  min-width: 0;
+}
+
+.yaml-indent {
+  width: 16px; /* 2 spaces at 8px per space */
+  flex-shrink: 0;
+}
 
 .yaml-array {
   display: flex;
   flex-direction: column;
   width: 100%;
-  min-width: 0;
 }
 
 .yaml-array-item {
   display: flex;
-  margin: 2px 0;
-  width: 100%;
-  min-width: 0;
+  align-items: flex-start;
+  padding-left: 16px; /* 2 spaces indent */
+}
+
+.yaml-array-bullet {
+  margin-right: 4px;
+  color: #666;
 }
 
 .yaml-array-content {
   flex: 1;
-  display: flex;
-  flex-direction: column;
   min-width: 0;
 }
 
-.yaml-array-bullet {
-  color: #7f8c8d;
-  margin-right: 8px;
-  width: 12px;
-  flex-shrink: 0;
-  display: inline-block;
-}
-
-.yaml-key {
-  color: #2ecc71;
-  margin-right: 8px;
-  font-weight: 500;
-  min-width: 120px;
-  flex-shrink: 0;
-  text-align: left;
-}
-
-.yaml-value {
-  flex: 1;
-  display: flex;
-  min-width: 0;
+.yaml-object {
+  width: 100%;
 }
 
 .yaml-value input {
-  flex: 1;
-  min-width: 0;
-  padding: 4px 8px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid transparent;
   font-family: inherit;
   font-size: inherit;
-  background: white;
-  width: 100%;
-  max-width: 300px;
+  padding: 0;
+  color: inherit;
 }
 
-.yaml-value input.cidr-input {
-  width: 150px;
-  min-width: 150px;
-}
-
-.yaml-value input.port-input {
-  width: 180px;
-  min-width: 180px;
-}
-
-.yaml-empty-object {
-  color: #95a5a6;
-  margin-left: 8px;
+.yaml-value input:hover {
+  border-bottom-color: #ddd;
 }
 
 .yaml-value input:focus {
   outline: none;
-  border-color: #3498db;
-  box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+  border-bottom-color: #0366d6;
+}
+
+.cidr-input,
+.port-input {
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+}
+
+.yaml-empty-object {
+  color: #666;
+  font-style: italic;
 }
 
 .button-group {
@@ -317,7 +298,7 @@
 
 /* Responsive adjustments */
 @media (max-width: 768px) {
-  .yaml-line {
+  .yaml-field {
     flex-wrap: wrap;
     white-space: normal;
   }
@@ -330,11 +311,7 @@
     max-width: none;
   }
 
-  .yaml-line.indent-1,
-  .yaml-line.indent-2,
-  .yaml-line.indent-3,
-  .yaml-line.indent-4,
-  .yaml-line.indent-5 {
+  .yaml-indent {
     padding-left: 20px;
   }
 }

@@ -100,6 +100,55 @@ Metal is a configuration generation tool for network fabric designs. It takes us
    - Applies port assignments
    - Creates output configuration objects
 
+5. **ConfigEditor** (`configEditor.jsx`)
+   - YAML-style object editor with exact structure matching
+   - Component Structure:
+     ```javascript
+     // Main component structure
+     ConfigEditor
+     ├── Object Groups (by kind)
+     │   ├── Object Cards
+     │   │   ├── Object Controls
+     │   │   │   ├── Visibility Toggle
+     │   │   │   └── Delete Button
+     │   │   └── YAML Structure
+     │   │       ├── Field Rows (key: value)
+     │   │       ├── Nested Objects
+     │   │       └── Array Items
+     │   └── Add Object Button
+     └── Save Button
+     ```
+   - State Management:
+     ```javascript
+     // Internal state structure
+     {
+       [kind: string]: Array<{
+         ...objectData,
+         _isVisible: boolean  // Internal visibility state
+       }>
+     }
+     ```
+   - Key Features:
+     - Exact YAML structure matching
+     - VSCode-like key coloring
+     - 2-space indentation
+     - Array bullet points
+     - Empty object placeholders
+     - Special input handling:
+       * CIDR notation (e.g., "10.10.0.0/16")
+       * Port names (e.g., "spine-1/Ethernet1")
+     - Maintains field order:
+       1. apiVersion
+       2. kind
+       3. metadata
+       4. spec
+       5. other fields
+   - Input/Output:
+     - Accepts both array and object formats
+     - Groups objects by kind internally
+     - Returns array of visible objects
+     - Strips internal state on save
+
 ### Form Component (`/src/frontend/js/form.jsx`)
 - Two-step configuration process:
   1. Basic Configuration:
@@ -334,6 +383,25 @@ const [editedConfig, setEditedConfig] = useState(null);
   border: 1px solid transparent;
   background: transparent;
   color: #0550ae;
+}
+
+.yaml-field {
+  display: flex;
+  align-items: flex-start;
+}
+
+.yaml-key {
+  color: #008000;  /* VSCode green */
+  margin-right: 8px;
+}
+
+.yaml-indent {
+  width: 16px;  /* 2 spaces */
+}
+
+.yaml-array-item {
+  display: flex;
+  padding-left: 16px;
 }
 ```
 

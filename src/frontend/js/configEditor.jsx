@@ -51,11 +51,47 @@ const objectTemplates = {
   }
 };
 
-const renderValue = (value, path, onChange, isVisible) => {
-  if (path === 'isVisible') return null;
+const renderIndent = (depth) => {
+  return Array(depth).fill().map((_, i) => (
+    <div key={i} className="yaml-indent" />
+  ));
+};
 
-  // Special handling for subnets array in IPv4Namespace
-  if (path === 'spec.subnets[0]') {
+const renderValue = (value, path, onChange, depth = 0) => {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    if (value.length === 0) {
+      return <span className="yaml-empty-object">[]</span>;
+    }
+    return (
+      <div className="yaml-array">
+        {value.map((item, index) => (
+          <div key={index} className="yaml-array-item">
+            <span className="yaml-array-bullet">-</span>
+            <div className="yaml-array-content">
+              {typeof item === 'object' ? 
+                renderObject(item, `${path}[${index}]`, onChange, depth + 1) :
+                renderValue(item, `${path}[${index}]`, onChange, depth + 1)
+              }
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (typeof value === 'object') {
+    if (Object.keys(value).length === 0) {
+      return <span className="yaml-empty-object">{"{}"}</span>;
+    }
+    return renderObject(value, path, onChange, depth);
+  }
+
+  // Special handling for CIDR notation in IPv4Namespace
+  if (path.includes('spec.subnets')) {
     return (
       <span className="yaml-value">
         <input
@@ -84,238 +120,191 @@ const renderValue = (value, path, onChange, isVisible) => {
     );
   }
 
-  if (Array.isArray(value)) {
-    return (
-      <div className="yaml-array">
-        {value.map((item, index) => (
-          <div key={index} className="yaml-array-item">
-            <span className="yaml-array-bullet">-</span>
-            <div className="yaml-array-content">
-              {typeof item === 'object' ? 
-                renderObject(item, `${path}[${index}]`, onChange, isVisible) :
-                renderValue(item, `${path}[${index}]`, onChange, isVisible)
-              }
-            </div>
-          </div>
-        ))}
-      </div>
-    );
-  }
-
-  if (value && typeof value === 'object') {
-    if (Object.keys(value).length === 0) {
-      return <span className="yaml-empty-object">{"{}"}</span>;
-    }
-    return renderObject(value, path, onChange, isVisible);
-  }
-
   return (
     <span className="yaml-value">
       <input
         type="text"
-        value={value || ''}
+        value={value}
         onChange={(e) => onChange(path, e.target.value)}
       />
     </span>
   );
 };
 
-const renderObject = (obj, path, onChange, isVisible) => {
+const renderObject = (obj, basePath = '', onChange, depth = 0) => {
   if (!obj || typeof obj !== 'object') return null;
-  
-  return Object.entries(obj).map(([key, value]) => {
-    if (key === 'isVisible') return null;
-    
-    const newPath = path ? `${path}.${key}` : key;
-    const indent = path ? path.split('.').length : 0;
-    
-    // Special handling for empty objects
-    if (value && typeof value === 'object' && Object.keys(value).length === 0) {
-      return (
-        <div key={key} className={`yaml-line indent-${indent}`}>
-          <span className="yaml-key">{key}:</span>
-          <span className="yaml-empty-object">{"{}"}</span>
-        </div>
-      );
-    }
 
-    return (
-      <div key={key} className={`yaml-line indent-${indent}`}>
-        <span className="yaml-key">{key}:</span>
-        {renderValue(value, newPath, onChange, isVisible)}
-      </div>
-    );
-  });
+  // Order of fields in YAML, excluding _isVisible
+  const orderedKeys = [
+    'apiVersion',
+    'kind',
+    'metadata',
+    'spec',
+    ...Object.keys(obj).filter(key => 
+      !['apiVersion', 'kind', 'metadata', 'spec', '_isVisible'].includes(key)
+    )
+  ].filter(key => obj.hasOwnProperty(key) && key !== '_isVisible');
+
+  return (
+    <div className="yaml-object">
+      {orderedKeys.map(key => {
+        const value = obj[key];
+        const path = basePath ? `${basePath}.${key}` : key;
+        
+        return (
+          <div key={key} className="yaml-field">
+            {renderIndent(depth)}
+            <span className="yaml-key">{key}:</span>
+            {renderValue(value, path, onChange, depth + 1)}
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 export function ConfigEditor({ configs, onSave }) {
-  const initialConfigState = configs.reduce((acc, config) => {
-    if (!acc[config.kind]) {
-      acc[config.kind] = [];
-    }
-    acc[config.kind].push({
-      ...config,
-      isVisible: true
-    });
-    return acc;
-  }, {});
-
-  const [groupedConfigs, setGroupedConfigs] = useState(initialConfigState);
-  const [deleteConfirmation, setDeleteConfirmation] = useState(null);
+  // Group configs by kind if they're in array format
+  const [objects, setObjects] = useState(() => {
+    const groupedConfigs = Array.isArray(configs)
+      ? configs.reduce((acc, config) => {
+          if (!acc[config.kind]) {
+            acc[config.kind] = [];
+          }
+          acc[config.kind].push({ ...config, _isVisible: true });
+          return acc;
+        }, {})
+      : Object.entries(configs).reduce((acc, [kind, items]) => {
+          acc[kind] = items.map(item => ({
+            ...item,
+            _isVisible: true
+          }));
+          return acc;
+        }, {});
+    return groupedConfigs;
+  });
 
   const handleObjectChange = (kind, index, path, value) => {
-    setGroupedConfigs(prev => ({
-      ...prev,
-      [kind]: prev[kind].map((obj, i) => {
-        if (i !== index) return obj;
-        
-        const newObj = { ...obj };
-        const parts = path.split('.');
-        let current = newObj;
-        
-        for (let i = 0; i < parts.length - 1; i++) {
-          const part = parts[i];
-          if (part.includes('[') && part.includes(']')) {
-            const arrayName = part.split('[')[0];
-            const arrayIndex = parseInt(part.split('[')[1].split(']')[0]);
-            if (!current[arrayName]) current[arrayName] = [];
-            if (!current[arrayName][arrayIndex]) current[arrayName][arrayIndex] = {};
-            current = current[arrayName][arrayIndex];
-          } else {
-            if (!current[part]) current[part] = {};
-            current = current[part];
-          }
+    setObjects(prev => {
+      const newObjects = { ...prev };
+      const objectToUpdate = { ...newObjects[kind][index] };
+      
+      // Handle nested path updates
+      const pathParts = path.split('.');
+      let current = objectToUpdate;
+      
+      for (let i = 0; i < pathParts.length - 1; i++) {
+        const part = pathParts[i];
+        if (part.includes('[')) {
+          // Handle array paths
+          const [arrayName, indexStr] = part.split('[');
+          const arrayIndex = parseInt(indexStr);
+          current = current[arrayName][arrayIndex];
+        } else {
+          current = current[part];
         }
-        
-        const lastPart = parts[parts.length - 1];
-        current[lastPart] = value;
-        
-        return newObj;
-      })
-    }));
+      }
+      
+      current[pathParts[pathParts.length - 1]] = value;
+      newObjects[kind][index] = objectToUpdate;
+      
+      return newObjects;
+    });
   };
 
-  const handleVisibilityChange = (kind, index) => {
-    setGroupedConfigs(prev => ({
-      ...prev,
-      [kind]: prev[kind].map((obj, i) => 
-        i === index ? { ...obj, isVisible: !obj.isVisible } : obj
-      )
-    }));
+  const toggleVisibility = (kind, index) => {
+    setObjects(prev => {
+      const newObjects = { ...prev };
+      newObjects[kind][index] = {
+        ...newObjects[kind][index],
+        _isVisible: !newObjects[kind][index]._isVisible
+      };
+      return newObjects;
+    });
   };
 
-  const handleDeleteObject = (kind, index) => {
-    setDeleteConfirmation({ kind, index });
+  const addObject = (kind) => {
+    setObjects(prev => {
+      const newObjects = { ...prev };
+      newObjects[kind] = [
+        ...newObjects[kind],
+        {
+          ...objectTemplates[kind],
+          _isVisible: true
+        }
+      ];
+      return newObjects;
+    });
   };
 
-  const confirmDelete = () => {
-    if (!deleteConfirmation) return;
-
-    const { kind, index } = deleteConfirmation;
-    setGroupedConfigs(prev => ({
-      ...prev,
-      [kind]: prev[kind].filter((_, i) => i !== index)
-    }));
-    setDeleteConfirmation(null);
-  };
-
-  const cancelDelete = () => {
-    setDeleteConfirmation(null);
-  };
-
-  const handleAddObject = (kind) => {
-    const template = objectTemplates[kind];
-    if (!template) return;
-
-    setGroupedConfigs(prev => ({
-      ...prev,
-      [kind]: [...(prev[kind] || []), { ...template, isVisible: true }]
-    }));
+  const deleteObject = (kind, index) => {
+    setObjects(prev => {
+      const newObjects = { ...prev };
+      newObjects[kind] = newObjects[kind].filter((_, i) => i !== index);
+      return newObjects;
+    });
   };
 
   const handleSave = () => {
-    const finalConfigs = Object.values(groupedConfigs)
-      .flat()
-      .filter(obj => obj.isVisible)
-      .map(({ isVisible, ...config }) => config);
-    
-    onSave(finalConfigs);
-  };
-
-  const handleBack = () => {
-    onSave(null);
+    // Convert objects back to array format, removing _isVisible
+    const cleanedConfigs = Object.entries(objects)
+      .reduce((acc, [kind, items]) => [
+        ...acc,
+        ...items
+          .filter(item => item._isVisible)
+          .map(({ _isVisible, ...item }) => item)
+      ], []);
+    onSave(cleanedConfigs);
   };
 
   return (
     <div className="config-editor">
-      <h2>Edit Configuration</h2>
-      
-      {Object.entries(groupedConfigs).map(([kind, objects]) => (
+      <h2>Configuration Editor</h2>
+      {Object.entries(objects).map(([kind, items]) => (
         <div key={kind} className="config-section">
           <div className="section-header">
             <h3>{kind}</h3>
-            <button 
+            <button
               className="add-object-button"
-              onClick={() => handleAddObject(kind)}
+              onClick={() => addObject(kind)}
             >
               Add {kind}
             </button>
           </div>
           
-          {objects.map((obj, index) => (
-            <div key={index} className={`config-object ${!obj.isVisible ? 'invisible' : ''}`}>
+          {items.map((obj, index) => (
+            <div key={index} className="config-object">
               <div className="object-controls">
-                <label className="visibility-control">
+                <div className="visibility-control">
                   <input
                     type="checkbox"
-                    checked={obj.isVisible}
-                    onChange={() => handleVisibilityChange(kind, index)}
+                    checked={obj._isVisible}
+                    onChange={() => toggleVisibility(kind, index)}
                   />
-                  Include in final config
-                </label>
+                  <span>Show/Hide</span>
+                </div>
                 <button
                   className="delete-button"
-                  onClick={() => handleDeleteObject(kind, index)}
+                  onClick={() => deleteObject(kind, index)}
                 >
                   Delete
                 </button>
               </div>
               
-              {renderObject(obj, '', (path, value) => 
+              {obj._isVisible && renderObject(obj, '', (path, value) => 
                 handleObjectChange(kind, index, path, value),
-                obj.isVisible
+                0
               )}
             </div>
           ))}
         </div>
       ))}
-
+      
       <div className="button-group">
-        <button onClick={handleBack} className="back-button">
-          Back
-        </button>
-        <button onClick={handleSave} className="save-button">
+        <button className="save-button" onClick={handleSave}>
           Save Configuration
         </button>
       </div>
-
-      {deleteConfirmation && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h3>Confirm Delete</h3>
-            <p>Are you sure you want to delete this {deleteConfirmation.kind} object?</p>
-            <p>This action cannot be undone.</p>
-            <div className="modal-buttons">
-              <button onClick={cancelDelete} className="cancel-button">
-                Cancel
-              </button>
-              <button onClick={confirmDelete} className="confirm-delete-button">
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
