@@ -55,130 +55,126 @@ class ConfigGenerator {
         return model.replace(/-/g, '_');
     }
 
+    // Base function to create Kubernetes CRD objects
+    createK8sObject(kind, name, spec, apiVersion = 'wiring.githedgehog.com/v1beta1') {
+        return {
+            apiVersion,
+            kind,
+            metadata: {
+                name
+            },
+            spec
+        };
+    }
+
+    // Generate VLANNamespace configuration
+    generateVLANNamespace(ranges) {
+        return this.createK8sObject('VLANNamespace', 'default', { ranges });
+    }
+
+    // Generate IPv4Namespace configuration
+    generateIPv4Namespace(name, subnets) {
+        return this.createK8sObject('IPv4Namespace', name, { subnets }, 'vpc.githedgehog.com/v1beta1');
+    }
+
+    // Generate proper port name following Hedgehog format
+    generatePortName(deviceName, portNumber) {
+        return `${deviceName}/Ethernet${portNumber}`;
+    }
+
+    // Generate Switch configuration
+    generateSwitch(name, model, role, config) {
+        return this.createK8sObject('Switch', name, {
+            profile: model,
+            role,
+            portGroupSpeeds: config.portGroupSpeeds,
+            portBreakouts: config.portBreakouts,
+            vlanNamespaces: ['default'],
+            asn: config.asn,
+            ip: config.ip,
+            vtepIP: config.vtepIP,
+            protocolIP: config.protocolIP
+        });
+    }
+
+    // Generate fabric Connection configuration
+    generateFabricConnection(spineName, leafName, links) {
+        return this.createK8sObject('Connection', `${spineName}--fabric--${leafName}`, {
+            fabric: {
+                links: links.map(link => ({
+                    spine: { port: this.generatePortName(spineName, link.spinePort) },
+                    leaf: { port: this.generatePortName(leafName, link.leafPort) }
+                }))
+            }
+        });
+    }
+
     async generateConfig(formData) {
         console.log('Received form data:', formData);
 
-        // Extract topology data
-        const {
-            model: leafModel,
-            count: numLeafSwitches,
-            fabricPortsPerLeaf: uplinksPerLeaf,
-            totalServerPorts
-        } = formData.topology.leaves;
+        try {
+            // Validate the fabric design
+            const config = await this.portAssignmentManager.validateAndAssignPorts(formData);
 
-        const {
-            model: spineModel,
-            count: numSpineSwitches
-        } = formData.topology.spines;
+            // Generate all required Kubernetes CRD objects
+            const k8sObjects = [];
 
-        // Normalize model names
-        const normalizedLeafModel = this.normalizeModelName(leafModel);
-        const normalizedSpineModel = this.normalizeModelName(spineModel);
+            // Add VLANNamespace
+            k8sObjects.push(this.generateVLANNamespace(formData.vlanNamespace.ranges));
 
-        // Validate the fabric design
-        const validation = await this.portAssignmentManager.validateFabricDesign({
-            leafSwitches: numLeafSwitches,
-            spineSwitches: numSpineSwitches,
-            uplinksPerLeaf,
-            totalServerPorts,
-            leafModel: normalizedLeafModel,
-            spineModel: normalizedSpineModel
-        });
+            // Add IPv4Namespaces
+            formData.ipv4Namespaces.forEach(ns => {
+                k8sObjects.push(this.generateIPv4Namespace(ns.name, ns.subnets));
+            });
 
-        if (!validation.isValid) {
-            throw new Error(`Invalid fabric design: ${validation.errors.join(', ')}`);
+            // Generate switch configurations
+            const spineModel = formData.topology.spines.model;
+            const leafModel = formData.topology.leaves.model;
+
+            // Generate spine switch objects
+            for (let i = 0; i < formData.topology.spines.count; i++) {
+                const spineName = generateSwitchName(spineModel, i);
+                k8sObjects.push(this.generateSwitch(spineName, spineModel, 'spine', {
+                    portGroupSpeeds: config.configs.spines[i].portGroupSpeeds,
+                    portBreakouts: config.configs.spines[i].portBreakouts,
+                    asn: config.configs.spines[i].asn,
+                    ip: config.configs.spines[i].ip,
+                    vtepIP: config.configs.spines[i].vtepIP,
+                    protocolIP: config.configs.spines[i].protocolIP
+                }));
+            }
+
+            // Generate leaf switch objects
+            for (let i = 0; i < formData.topology.leaves.count; i++) {
+                const leafName = generateSwitchName(leafModel, i);
+                k8sObjects.push(this.generateSwitch(leafName, leafModel, 'leaf', {
+                    portGroupSpeeds: config.configs.leaves[i].portGroupSpeeds,
+                    portBreakouts: config.configs.leaves[i].portBreakouts,
+                    asn: config.configs.leaves[i].asn,
+                    ip: config.configs.leaves[i].ip,
+                    vtepIP: config.configs.leaves[i].vtepIP,
+                    protocolIP: config.configs.leaves[i].protocolIP
+                }));
+            }
+
+            // Generate fabric connections
+            config.configs.leaves.forEach((leaf, leafIndex) => {
+                const leafName = generateSwitchName(leafModel, leafIndex);
+                config.configs.spines.forEach((spine, spineIndex) => {
+                    const spineName = generateSwitchName(spineModel, spineIndex);
+                    const links = leaf.ports.fabric.map((fabricPort, index) => ({
+                        spinePort: spine.ports.fabric[index].id,
+                        leafPort: fabricPort.id
+                    }));
+                    k8sObjects.push(this.generateFabricConnection(spineName, leafName, links));
+                });
+            });
+
+            return k8sObjects;
+        } catch (error) {
+            console.error('Error generating configuration:', error);
+            throw error;
         }
-
-        // Generate port assignments
-        const portAssignments = await this.portAssignmentManager.generatePortAssignments({
-            leafSwitches: numLeafSwitches,
-            spineSwitches: numSpineSwitches,
-            uplinksPerLeaf,
-            totalServerPorts,
-            leafModel: normalizedLeafModel,
-            spineModel: normalizedSpineModel
-        });
-
-        const configs = [];
-
-        // Add VLANNamespace
-        configs.push(generateVLANNamespace(formData.vlanNamespace.ranges));
-
-        // Add IPv4Namespace
-        formData.ipv4Namespaces.forEach(ns => {
-            configs.push(generateIPv4Namespace(ns.name, ns.subnets));
-        });
-
-        // Generate switch configurations using port assignments
-        portAssignments.leaves.forEach(leaf => {
-            configs.push({
-                apiVersion: 'wiring.githedgehog.com/v1beta1',
-                kind: 'Switch',
-                metadata: {
-                    name: leaf.switchId,
-                    namespace: 'default'
-                },
-                spec: {
-                    model: normalizedLeafModel,
-                    role: 'leaf',
-                    serial: formData.switchSerials[leaf.switchId],
-                    ports: {
-                        fabric: leaf.ports.fabric.map(port => ({
-                            id: port.id,
-                            speed: port.speed
-                        })),
-                        server: leaf.ports.server.map(port => ({
-                            id: port.id,
-                            speed: port.speed
-                        }))
-                    }
-                }
-            });
-
-            // Add VPC loopback for each leaf
-            configs.push(generateVPCLoopback(leaf.switchId));
-        });
-
-        portAssignments.spines.forEach(spine => {
-            configs.push({
-                apiVersion: 'wiring.githedgehog.com/v1beta1',
-                kind: 'Switch',
-                metadata: {
-                    name: spine.switchId,
-                    namespace: 'default'
-                },
-                spec: {
-                    model: normalizedSpineModel,
-                    role: 'spine',
-                    serial: formData.switchSerials[spine.switchId],
-                    ports: {
-                        fabric: spine.ports.fabric.map(port => ({
-                            id: port.id,
-                            speed: port.speed
-                        }))
-                    }
-                }
-            });
-        });
-
-        // Add fabric connections
-        portAssignments.leaves.forEach((leaf, leafIdx) => {
-            leaf.ports.fabric.forEach((fabricPort, portIdx) => {
-                const spineIdx = Math.floor(portIdx / uplinksPerLeaf);
-                const spine = portAssignments.spines[spineIdx];
-                const spinePortIdx = leafIdx % numSpineSwitches;
-                const spinePort = spine.ports.fabric[spinePortIdx];
-
-                configs.push(generateFabricConnection(
-                    spine.switchId,
-                    leaf.switchId,
-                    spinePort.id,
-                    fabricPort.id
-                ));
-            });
-        });
-
-        return { configs };
     }
 }
 
@@ -260,100 +256,11 @@ function generateIPv4Namespace(name = 'default', subnets = ['10.10.0.0/16']) {
     };
 }
 
-function generateSwitch(name, model, role, serial, breakoutConfig) {
-    const spec = {
-        profile: model,
-        role,
-        description: role === 'spine' ? `spine-${name.split('-')[1]}` : `leaf-${name.split('-')[1]}`,
-        boot: {
-            serial
-        }
-    };
-
-    // Add breakout configuration if specified
-    if (breakoutConfig?.breakout) {
-        spec.portBreakouts = {};
-        
-        // For spine switches, configure fabric ports
-        if (role === 'spine') {
-            const validFabricPorts = portRules.getValidPorts(model, 'fabric');
-            validFabricPorts.forEach(port => {
-                if (breakoutConfig.breakout !== 'fixed') {
-                    spec.portBreakouts[`E1/${port}`] = breakoutConfig.breakout;
-                }
-            });
-        }
-        // For leaf switches, configure both fabric and server ports
-        else {
-            // Configure fabric ports
-            const validFabricPorts = portRules.getValidPorts(model, 'fabric');
-            validFabricPorts.forEach(port => {
-                if (breakoutConfig.breakout !== 'fixed') {
-                    spec.portBreakouts[`E1/${port}`] = breakoutConfig.breakout;
-                }
-            });
-
-            // Configure server ports if they need breakout
-            if (breakoutConfig.serverBreakout && breakoutConfig.serverBreakout !== 'fixed') {
-                const validServerPorts = portRules.getValidPorts(model, 'server');
-                validServerPorts.forEach(port => {
-                    spec.portBreakouts[`E1/${port}`] = breakoutConfig.serverBreakout;
-                });
-            }
-        }
-    }
-
-    return {
-        apiVersion: 'wiring.githedgehog.com/v1beta1',
-        kind: 'Switch',
-        metadata: {
-            name,
-            namespace: 'default',
-            annotations: {
-                'type.hhfab.githedgehog.com': 'hw'
-            }
-        },
-        spec
-    };
-}
-
-function generateFabricConnection(spineName, leafName, spinePort, leafPort) {
-    return {
-        apiVersion: 'wiring.githedgehog.com/v1beta1',
-        kind: 'Connection',
-        metadata: {
-            name: `${spineName}--fabric--${leafName}`,
-            namespace: 'default'
-        },
-        spec: {
-            fabric: {
-                links: [{
-                    spine: {
-                        port: spinePort
-                    },
-                    leaf: {
-                        port: leafPort
-                    }
-                }]
-            }
-        }
-    };
-}
-
-function generateVPCLoopback(switchName) {
-    return {
-        apiVersion: 'wiring.githedgehog.com/v1beta1',
-        kind: 'Connection',
-        metadata: {
-            name: `${switchName}--vpc-loopback`,
-            namespace: 'default'
-        },
-        spec: {
-            vpcLoopback: {
-                switch: switchName
-            }
-        }
-    };
+function generateSwitchName(model, index) {
+    const modelPrefix = model.includes('s5232') ? 's5232' : 
+                       model.includes('s5248') ? 's5248' : 
+                       model.replace(/[^a-zA-Z0-9]/g, '');
+    return `${modelPrefix}-${String(index + 1).padStart(2, '0')}`;
 }
 
 export async function generateConfig(formData) {
@@ -368,11 +275,4 @@ export async function generateConfig(formData) {
     // Create config generator with initialized components
     const configGenerator = new ConfigGenerator(switchProfileManager, portRules);
     return configGenerator.generateConfig(formData);
-}
-
-export function generateSwitchName(model, index) {
-    const modelPrefix = model.includes('s5232') ? 's5232' : 
-                       model.includes('s5248') ? 's5248' : 
-                       model.replace(/[^a-zA-Z0-9]/g, '');
-    return `${modelPrefix}-${String(index + 1).padStart(2, '0')}`;
 }
