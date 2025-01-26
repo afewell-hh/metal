@@ -122,7 +122,8 @@ export function ConfigForm() {
   }
 
   if (showSerialInput && generatedConfig) {
-    const yamlConfigs = generatedConfig.configs.map(config => 
+    // Convert array of k8s objects directly to YAML
+    const yamlConfigs = generatedConfig.map(config => 
       jsyaml.dump(config)
     ).join('---\n');
 
