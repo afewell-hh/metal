@@ -54,18 +54,15 @@ class ConfigGenerator {
     async generateConfig(formData) {
         console.log('Received form data:', formData);
 
-        // Extract topology data
+        // Extract form data
         const {
-            model: leafModel,
-            count: leafCount,
-            fabricPortsPerLeaf,
-            totalServerPorts
-        } = formData.topology.leaves;
-
-        const {
-            model: spineModel,
-            count: spineCount
-        } = formData.topology.spines;
+            numLeafSwitches,
+            numSpineSwitches,
+            uplinksPerLeaf,
+            totalServerPorts,
+            leafModel,
+            spineModel
+        } = formData;
 
         // Normalize model names
         const normalizedLeafModel = this.normalizeModelName(leafModel);
@@ -73,9 +70,9 @@ class ConfigGenerator {
 
         // Validate the fabric design
         const validation = await this.portAssignmentManager.validateFabricDesign({
-            leafSwitches: leafCount,
-            spineSwitches: spineCount,
-            uplinksPerLeaf: fabricPortsPerLeaf,
+            leafSwitches: numLeafSwitches,
+            spineSwitches: numSpineSwitches,
+            uplinksPerLeaf,
             totalServerPorts,
             leafModel: normalizedLeafModel,
             spineModel: normalizedSpineModel
@@ -87,9 +84,9 @@ class ConfigGenerator {
 
         // Generate port assignments
         const portAssignments = await this.portAssignmentManager.generatePortAssignments({
-            leafSwitches: leafCount,
-            spineSwitches: spineCount,
-            uplinksPerLeaf: fabricPortsPerLeaf,
+            leafSwitches: numLeafSwitches,
+            spineSwitches: numSpineSwitches,
+            uplinksPerLeaf,
             totalServerPorts,
             leafModel: normalizedLeafModel,
             spineModel: normalizedSpineModel
@@ -160,9 +157,9 @@ class ConfigGenerator {
         // Add fabric connections
         portAssignments.leaves.forEach((leaf, leafIdx) => {
             leaf.ports.fabric.forEach((fabricPort, portIdx) => {
-                const spineIdx = Math.floor(portIdx / fabricPortsPerLeaf);
+                const spineIdx = Math.floor(portIdx / uplinksPerLeaf);
                 const spine = portAssignments.spines[spineIdx];
-                const spinePortIdx = leafIdx % spineCount;
+                const spinePortIdx = leafIdx % numSpineSwitches;
                 const spinePort = spine.ports.fabric[spinePortIdx];
 
                 configs.push(generateFabricConnection(
@@ -363,17 +360,7 @@ export async function generateConfig(formData) {
 
     // Generate port assignments and configuration
     try {
-        const config = await configGenerator.generateConfig({
-            numLeafSwitches: formData.topology.leaves.count,
-            numSpineSwitches: formData.topology.spines.count,
-            uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf,
-            totalServerPorts: formData.topology.leaves.totalServerPorts,
-            leafModel: formData.topology.leaves.model,
-            spineModel: formData.topology.spines.model,
-            fabricName: formData.topology.name || 'default-fabric',
-            description: formData.topology.description || '',
-            switchSerials: formData.switchSerials
-        });
+        const config = await configGenerator.generateConfig(formData);
 
         const configs = [];
 
@@ -393,8 +380,8 @@ export async function generateConfig(formData) {
                 'leaf',
                 formData.switchSerials[leaf.id],
                 {
-                    breakout: formData.topology.leaves.fabricPortConfig.breakout,
-                    serverBreakout: formData.topology.leaves.serverPortConfig.breakout
+                    breakout: formData.fabricPortConfig.breakout,
+                    serverBreakout: formData.serverPortConfig.breakout
                 }
             ));
 
@@ -409,7 +396,7 @@ export async function generateConfig(formData) {
                 'spine',
                 formData.switchSerials[spine.id],
                 {
-                    breakout: formData.topology.spines.fabricPortConfig.breakout
+                    breakout: formData.fabricPortConfig.breakout
                 }
             ));
         });
@@ -417,9 +404,9 @@ export async function generateConfig(formData) {
         // Generate fabric connections
         config.configs.leaves.forEach(leaf => {
             leaf.ports.fabric.forEach((fabricPort, index) => {
-                const spineIndex = Math.floor(index / formData.topology.leaves.fabricPortsPerLeaf);
-                const spineName = generateSwitchName(formData.topology.spines.model, spineIndex);
-                const spinePortIndex = index % formData.topology.spines.count;
+                const spineIndex = Math.floor(index / formData.uplinksPerLeaf);
+                const spineName = generateSwitchName(formData.spineModel, spineIndex);
+                const spinePortIndex = index % formData.numSpineSwitches;
                 
                 configs.push(generateFabricConnection(
                     spineName,
