@@ -82,16 +82,15 @@ class ConfigGenerator {
     // Generate Switch configuration
     generateSwitch(name, model, role, config) {
         const normalizedModel = this.normalizeModelName(model);
+        const rolePrefix = role === 'spine' ? 'spine' : 'leaf';
+        const switchNumber = name.split('-')[1];
+
         return this.createK8sObject('Switch', name, {
             profile: normalizedModel,
             role,
+            description: `${rolePrefix}-${switchNumber}`,
             portGroupSpeeds: config.portGroupSpeeds,
-            portBreakouts: config.portBreakouts,
-            vlanNamespaces: ['default'],
-            asn: config.asn,
-            ip: config.ip,
-            vtepIP: config.vtepIP,
-            protocolIP: config.protocolIP
+            portBreakouts: config.portBreakouts || {}
         });
     }
 

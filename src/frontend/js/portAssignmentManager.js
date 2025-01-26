@@ -402,7 +402,7 @@ export class PortAssignmentManager {
             configs.spines.push({
                 ...networkConfig,
                 portGroupSpeeds: {
-                    "1": "100G"  // Default spine ports to 100G
+                    "1": "10G"  // Match known-good config speed
                 },
                 portBreakouts: {},  // No breakouts by default for spine switches
                 ports: {
@@ -414,7 +414,7 @@ export class PortAssignmentManager {
                         const portNumber = leafIndex * uplinksPerLeaf * numSpineSwitches + uplinkIndex * numSpineSwitches + i + 1;
                         return {
                             id: `${portNumber}`,
-                            speed: "100G"
+                            speed: "10G"
                         };
                     })
                 }
@@ -427,19 +427,19 @@ export class PortAssignmentManager {
             configs.leaves.push({
                 ...networkConfig,
                 portGroupSpeeds: {
-                    "1": "100G",  // Fabric ports
-                    "2": "25G"    // Server ports
+                    "1": "10G",  // Match known-good config speed
+                    "2": "10G"   // Match known-good config speed
                 },
                 portBreakouts: {},  // Add breakouts if needed
                 ports: {
                     fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => ({
                         // Use 49, 51, 53, 55 for fabric ports
                         id: `${49 + j * 2}`,
-                        speed: "100G"
+                        speed: "10G"
                     })),
                     server: Array(totalServerPorts).fill(null).map((_, j) => ({
-                        id: `${j + 1}`,  // Starting from port 1 for server ports
-                        speed: "25G"
+                        id: `${j + 1}`,
+                        speed: "10G"
                     }))
                 }
             });
