@@ -17,6 +17,41 @@ Metal is a configuration generation tool for network fabric designs. It takes us
 
 ## Core Components
 
+### Configuration Generation (`/src/frontend/js/configGenerator.js`)
+- Generates Kubernetes CRD objects for Hedgehog's Wiring Diagram API
+- Key object types:
+  - Switch: Physical switch configuration with profile, role, and serial number
+  - Connection: Physical connections between devices (fabric, MCLAG)
+  - VLANNamespace: Non-overlapping VLAN ranges
+  - SwitchGroup: Groups of switches (e.g., MCLAG pairs)
+- Object format follows Kubernetes CRD structure:
+  ```yaml
+  apiVersion: wiring.githedgehog.com/v1beta1
+  kind: <ObjectType>
+  metadata:
+    name: <unique-name>
+  spec:
+    # Type-specific fields
+  ```
+- Port naming follows format: "device/port" (e.g., "spine-1/E1/1")
+- Switch naming convention:
+  ```javascript
+  // Example switch name generation:
+  dell-s5232f-on -> s5232-01
+  celestica-ds4000 -> ds4000-01
+  edgecore-dcs501 -> dcs501-01
+  ```
+- Fabric connection distribution:
+  - Each leaf gets equal uplinks to each spine
+  - Port numbering is sequential and unique
+  - Example with 2 spines, 4 uplinks per leaf:
+    ```
+    Leaf 1 -> Spine 1: ports 1,2 (leaf ports 49,51)
+    Leaf 1 -> Spine 2: ports 1,2 (leaf ports 53,55)
+    Leaf 2 -> Spine 1: ports 3,4 (leaf ports 49,51)
+    Leaf 2 -> Spine 2: ports 3,4 (leaf ports 53,55)
+    ```
+
 ### Switch Profiles (`/switch_profiles/`)
 - Go files containing comprehensive switch specifications
 - Naming pattern: `profile_<model>.go`
@@ -65,6 +100,269 @@ Metal is a configuration generation tool for network fabric designs. It takes us
    - Applies port assignments
    - Creates output configuration objects
 
+### Form Component (`/src/frontend/js/form.jsx`)
+- Two-step configuration process:
+  1. Basic Configuration:
+     - Switch model selection (dynamic from profiles)
+     - Switch quantities
+     - Port configurations
+  2. Serial Number Entry:
+     - Pre-populated with "TODO"
+     - One field per switch
+     - Validates input format
+- State Management:
+  - Maintains form data across steps
+  - Updates serial numbers when topology changes
+  - Validates input combinations
+- Switch Model Selection:
+  - Dynamically loads supported models
+  - Converts profile names to display format
+  - Groups by vendor (Dell, Celestica, etc.)
+
+## Metal Architecture
+
+### Overview
+Metal is a network fabric configuration generator that creates Kubernetes CRD objects for the Hedgehog Wiring Diagram API. It provides a multi-step form interface for users to specify their desired network topology and generates the appropriate configuration objects.
+
+### Core Components
+
+#### 1. Form Component
+The form component manages the user input workflow through multiple steps:
+
+##### Step 1: Basic Configuration
+- Switch counts and models
+- Port breakout configurations
+- VLAN and IP ranges
+- Fabric port distribution settings
+
+##### Step 2: Serial Numbers
+- Input for switch serial numbers
+- Default "TODO" values provided
+- Validation for serial format
+- Back navigation support
+
+##### Step 3: Configuration Editor
+- YAML-style editing interface
+- Objects grouped by kind
+- Card-based visual organization
+- Inline value editing
+- Back navigation to serial input
+
+##### Step 4: Final Configuration
+- Complete YAML display
+- Download functionality
+- Back navigation to editor
+- Configuration review
+
+#### 2. Configuration Generator
+
+##### Switch Object Generation
+```javascript
+{
+  apiVersion: 'wiring.githedgehog.com/v1beta1',
+  kind: 'Switch',
+  metadata: {
+    name: generateSwitchName(model, index)
+  },
+  spec: {
+    profile: model,
+    role: 'spine|leaf',
+    serial: serial,
+    portGroupSpeeds: {...},
+    portBreakouts: {...}  // optional
+  }
+}
+```
+
+##### Connection Object Generation
+```javascript
+{
+  apiVersion: 'wiring.githedgehog.com/v1beta1',
+  kind: 'Connection',
+  metadata: {
+    name: `${spineName}--fabric--${leafName}`
+  },
+  spec: {
+    fabric: {
+      links: [{
+        spine: { port: `${spineName}/E1/${spinePort}` },
+        leaf: { port: `${leafName}/E1/${leafPort}` }
+      }]
+    }
+  }
+}
+```
+
+##### Port Distribution Algorithm
+1. Calculate ports needed per spine:
+   ```javascript
+   portsPerSpine = totalLeaves * uplinksPerLeaf / numSpines
+   ```
+
+2. Distribute ports evenly:
+   ```javascript
+   spinePort = leafIndex * uplinksPerSpine + i + 1
+   leafPort = 49 + (spineIndex * uplinksPerSpine * 2) + (i * 2)
+   ```
+
+3. Validate distribution:
+   - Check port availability
+   - Verify speed compatibility
+   - Ensure even distribution
+
+#### 3. SwitchProfileManager
+
+##### Profile Loading
+- Loads supported switch models
+- Validates profile compatibility
+- Manages model normalization
+- Provides port capabilities
+
+##### Model Name Processing
+1. Convert to lowercase
+2. Remove vendor prefixes/suffixes
+3. Normalize format
+4. Generate consistent names
+
+#### 4. Port Allocation Rules
+
+##### Rule Structure
+```yaml
+portRanges:
+  - name: "fabric"
+    first: 49
+    count: 8
+    speed: "100G"
+    breakoutCapable: true
+    allowedBreakouts: ["4x25G", "2x50G", "1x100G"]
+```
+
+##### Port Assignment
+1. Load port ranges from rules
+2. Validate against profile
+3. Apply breakout configuration
+4. Generate port names
+
+## State Management
+
+### Form State
+```javascript
+const [formData, setFormData] = useState({
+  topology: {
+    spines: { model, count, fabricPortConfig },
+    leaves: { model, count, fabricPortsPerLeaf, ... }
+  },
+  switchSerials: {},
+  vlanNamespace: { ranges: [{ from, to }] },
+  ipv4Namespaces: [{ subnets: [] }]
+});
+```
+
+### Navigation State
+```javascript
+const [showSerialInput, setShowSerialInput] = useState(false);
+const [showConfigEditor, setShowConfigEditor] = useState(false);
+const [editedConfig, setEditedConfig] = useState(null);
+```
+
+### Configuration State
+```javascript
+const [generatedConfig, setGeneratedConfig] = useState(null);
+const [editedConfig, setEditedConfig] = useState(null);
+```
+
+## Validation Framework
+
+### Input Validation
+- Switch model compatibility
+- Port count validation
+- Serial number format
+- VLAN range checks
+
+### Configuration Validation
+- Port distribution rules
+- Connection completeness
+- Object structure
+- Name consistency
+
+### Error Handling
+- User-friendly messages
+- State preservation
+- Recovery options
+- Detailed logging
+
+## CSS Architecture
+
+### Layout Structure
+```css
+.config-editor {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f5f5f5;
+}
+
+.config-section {
+  margin-bottom: 40px;
+  padding: 25px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.config-object {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  white-space: pre;
+}
+```
+
+### YAML Styling
+```css
+.yaml-line {
+  display: flex;
+  align-items: center;
+  min-height: 24px;
+}
+
+.yaml-value input {
+  font-family: inherit;
+  font-size: inherit;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #0550ae;
+}
+```
+
+## Development Guidelines
+
+### Code Organization
+- Components in `/frontend/js/`
+- Styles in `/frontend/css/`
+- Configuration in separate modules
+- Utility functions isolated
+
+### State Management
+- Use React hooks for state
+- Preserve state during navigation
+- Clear separation of concerns
+- Predictable state updates
+
+### Error Handling
+- Validate early
+- Preserve state on error
+- Show clear messages
+- Provide recovery paths
+
+### Testing
+- Unit test core logic
+- Integration test workflow
+- Validate configurations
+- Test edge cases
+
 ## Port Assignment Logic
 
 ### Validation Rules
@@ -72,17 +370,19 @@ Metal is a configuration generation tool for network fabric designs. It takes us
    - Each leaf must connect to all spine switches
    - Minimum uplinks per leaf = number of spine switches
    - All leaf switches must have equal spine connections
+   - Uplinks must be evenly distributed across spines
    - Port counts must account for breakout configurations
 
-2. Switch Quantity Validation:
-   - Spine/leaf quantities need not be even numbers
-   - Key formula: total_fabric_connections = num_leaves * uplinks_per_leaf
-   - Must validate against available ports considering breakout modes
+2. Port Distribution Rules:
+   - Each leaf gets dedicated port range on spines
+   - Leaf ports are assigned in pairs (49,51,53,55)
+   - Spine ports are sequential within each leaf's range
+   - Port assignments must be deterministic
 
-3. Port Capacity Validation:
-   - Must consider both fabric and server port requirements
-   - Account for breakout configurations in capacity calculations
-   - Example: 4x25G breakout creates 4 logical ports from 1 physical port
+3. Switch Compatibility:
+   - Models must support required port speeds
+   - Must have sufficient ports for topology
+   - Port breakout configurations must be compatible
 
 ### Port Assignment Algorithm
 1. Fabric Ports:
@@ -142,14 +442,6 @@ Metal is a configuration generation tool for network fabric designs. It takes us
   }
 }
 ```
-
-## Development Guidelines
-1. Always validate against switch profiles before making port assignments
-2. Consider breakout configurations in all port calculations
-3. Maintain clear separation between physical and logical port tracking
-4. Keep PAR rules updated with accurate port ranges
-5. Document complex logic in code comments
-6. Make frequent, well-documented git commits
 
 ## Testing Considerations
 1. Test with various breakout configurations

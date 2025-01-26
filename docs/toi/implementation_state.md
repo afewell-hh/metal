@@ -1,177 +1,216 @@
-# Current Implementation State
-
-## Project Status Overview
-Metal is a network fabric configuration generator that takes user inputs about desired topology and generates appropriate switch configurations. The project is in active development with core functionality in place and several key features in progress.
-
-## Core Architecture
-The application follows a modular design with clear separation of concerns:
-1. Frontend UI for user input
-2. Profile management for switch capabilities
-3. Port allocation and validation
-4. Configuration generation
+# Metal Implementation State
 
 ## Completed Features
 
-### 1. Frontend Structure
-- React-based form components for user input
-- Vite development server configuration
-- Static file serving for profiles and rules
-- Basic error handling and user feedback
+### Configuration Generation
+- Switch serial number management in form and config
+- Proper fabric port distribution across spines
+- Dynamic switch model selection from profiles
+- Kubernetes CRD object generation with correct metadata
+- Port naming and assignment with proper validation
+- Switch name generation with vendor normalization
+- Network configuration field generation
 
-### 2. Profile Management
-- Go profile parsing implementation
-- Support for profile inheritance
-- Port rule validation
-- Profile initialization checks
-- Error handling for missing files
+### Form Components
+- Multi-step form workflow:
+  1. Basic Configuration (switch counts, models, etc.)
+  2. Serial Number Input
+  3. Configuration Editor
+  4. Final Configuration Display
+- State preservation between steps
+- Back navigation with state retention
+- Dynamic model selection from SwitchProfileManager
+- Validation for port counts and distributions
 
-### 3. Port Rules
-- YAML-based port rule definition
-- Support for overlapping port ranges
-- Port validation against profiles
-- Management port handling
-
-### 4. Configuration Generation
-- Basic structure implemented
-- Port assignment framework
-- Validation checks
-- Output format defined
+### User Interface
+- YAML-style configuration editor
+- Card-based layout for object types
+- Visual section separation
+- Editable fields within YAML structure
+- Download generated configuration
+- Navigation between all steps
 
 ## In Progress Features
 
-### 1. Port Assignment Logic
-- Need to implement:
-  - Breakout handling
-  - Port capacity validation
-  - Port distribution algorithm
-  - Speed determination from profiles
+### Configuration Validation
+- Switch model compatibility checking
+- Port speed validation
+- Breakout configuration validation
+- VLAN range overlap detection
 
-### 2. Configuration Generation
-- Need to enhance:
-  - Breakout support
-  - Comprehensive validation
-  - Error reporting
-  - Configuration versioning
-
-### 3. Testing Infrastructure
-- Need to add:
-  - Unit tests for core components
-  - Integration tests for configuration generation
-  - Validation test cases
-  - Edge case coverage
+### Advanced Features
+- MCLAG support
+- ESLAG support
+- External connection support
+- Advanced network configuration
 
 ## Known Issues
 
-### 1. Profile Loading
-- Requires specific file structure
-- Error handling needs improvement
-- Better feedback for missing files needed
-- Profile inheritance edge cases
+### Configuration Generation
+- Need to validate switch model compatibility
+- Need to implement MCLAG support
+- Need to add comprehensive network configuration fields
+- Need to validate breakout configurations
 
-### 2. Validation
-- Basic port validation only
-- Need fabric design validation
-- Need capacity checks
-- Breakout validation missing
-
-### 3. Error Handling
-- Some error messages need improvement
-- Stack traces not properly captured
-- User feedback could be more detailed
-- Async error handling needs work
+### User Interface
+- Need to add form validation error messages
+- Need to add loading states for async operations
+- Need to add confirmation for destructive actions
 
 ## Critical Dependencies
-1. Frontend:
-   - React for UI components
-   - Vite for development server
-   - js-yaml for YAML parsing
 
-2. Backend Dependencies:
-   - Go profiles from switch definitions
-   - YAML port allocation rules
-   - SONiC configuration templates
+### SwitchProfileManager
+- Required for switch model validation
+- Manages supported switch profiles
+- Handles model name normalization
+- Must be initialized before form render
 
-## Next Steps
+### Port Allocation Rules
+- Defines valid port ranges
+- Specifies breakout capabilities
+- Controls port numbering scheme
+- Must match physical switch capabilities
 
-### 1. Immediate Priorities
-- Implement comprehensive port assignment logic
-- Add breakout configuration support
-- Enhance validation rules
-- Improve error handling
+## Component Architecture
 
-### 2. Medium-term Goals
-- Add unit tests for core functionality
-- Implement configuration versioning
-- Add profile validation
-- Enhance user feedback
+### Form Component
+- Manages multi-step form state
+- Handles navigation between steps
+- Preserves state during navigation
+- Coordinates with ConfigGenerator
 
-### 3. Long-term Goals
-- Add configuration preview
-- Support for more switch models
-- Enhanced error reporting
-- Performance optimizations
+### ConfigEditor Component
+- Renders K8s objects in YAML format
+- Provides inline editing capability
+- Maintains object structure
+- Groups objects by kind
 
-## Recent Changes
+### ConfigGenerator
+- Generates K8s objects
+- Handles port distribution
+- Manages switch naming
+- Creates fabric connections
 
-### 1. Profile Management
-- Updated SwitchProfileManager to handle Go profiles
-- Added proper initialization checks
-- Improved error handling
-- Added profile inheritance support
+## Data Flow
 
-### 2. Port Assignment
-- Implemented basic port assignment logic
-- Added validation framework
-- Support for overlapping ports
-- Prepared for breakout support
+### Form State
+```javascript
+{
+  topology: {
+    spines: {
+      model: string,
+      count: number,
+      fabricPortConfig: {
+        breakout: string | null
+      }
+    },
+    leaves: {
+      model: string,
+      count: number,
+      fabricPortsPerLeaf: number,
+      fabricPortConfig: {
+        breakout: string | null
+      },
+      totalServerPorts: number,
+      serverPortConfig: {
+        breakout: string | null
+      }
+    }
+  },
+  switchSerials: {
+    [switchName: string]: string
+  },
+  vlanNamespace: {
+    ranges: [{
+      from: number,
+      to: number
+    }]
+  },
+  ipv4Namespaces: [{
+    subnets: string[]
+  }]
+}
+```
 
-### 3. Configuration
-- Updated Vite config for proper file serving
-- Added static file handling
-- Improved development workflow
-- Enhanced error reporting
+### Configuration Objects
+Generated objects follow Hedgehog Wiring Diagram API:
+- Switch objects with profile, role, ports
+- Connection objects for fabric links
+- VLANNamespace for VLAN ranges
+- IPv4Namespace for subnets
+
+## Validation Rules
+
+### Port Distribution
+- Uplinks must be evenly distributed across spines
+- Port counts must match switch capabilities
+- Port speeds must be compatible
+- Breakout modes must be supported
+
+### Configuration Structure
+- Switch names must follow naming convention
+- Port names must match device names
+- VLAN ranges cannot overlap
+- Fabric connections must be complete
+
+## User Workflow
+
+1. Basic Configuration
+   - Enter switch counts and models
+   - Configure port breakouts
+   - Specify VLAN and IP ranges
+
+2. Serial Number Input
+   - Enter or use default serials
+   - Can return to basic config
+
+3. Configuration Editor
+   - Edit generated objects
+   - YAML-style interface
+   - Grouped by object type
+   - Can return to serial input
+
+4. Final Configuration
+   - Review complete config
+   - Download YAML file
+   - Can return to editor
+
+## Future Enhancements
+
+### Planned Features
+- MCLAG configuration
+- External connections
+- Network policy generation
+- Advanced validation rules
+
+### UI Improvements
+- Real-time validation
+- Error highlighting
+- Auto-completion
+- Configuration templates
 
 ## Development Guidelines
 
-### 1. Code Organization
-- Keep components modular
-- Document complex logic
-- Use TypeScript where possible
-- Follow React best practices
+### Code Organization
+- React components in `frontend/js`
+- CSS in `frontend/css`
+- Configuration logic in separate modules
+- Validation in dedicated functions
 
-### 2. Testing
-- Write tests for new features
-- Cover edge cases
-- Test error conditions
-- Validate configurations
+### State Management
+- Form state preserved during navigation
+- Configuration state separate from form
+- Editor state tracks modifications
+- Navigation state controls workflow
 
-### 3. Documentation
-- Update TOI documents
-- Document complex logic
-- Keep README current
-- Add inline documentation
+### Error Handling
+- Validate inputs before generation
+- Preserve state on error
+- Show user-friendly messages
+- Allow error recovery
 
-## Getting Started
-1. Review `architecture.md` for system overview
-2. Examine switch profiles in `/switch_profiles/`
-3. Check port rules in `/src/frontend/port_allocation_rules/`
-4. Review core logic in `/src/frontend/js/`
-
-## Common Workflows
-1. Adding new switch model:
-   - Create Go profile
-   - Add PAR rules
-   - Update profile manager
-   - Add validation tests
-
-2. Modifying port assignment:
-   - Update `portAssignmentManager.js`
-   - Modify validation rules
-   - Update configuration generator
-   - Add test cases
-
-3. Debugging issues:
-   - Check browser console
-   - Verify profile loading
-   - Validate port rules
-   - Review error logs
+### Testing Strategy
+- Unit tests for generation logic
+- Integration tests for workflow
+- Validation tests for configs
+- UI component tests
