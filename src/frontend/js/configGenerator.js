@@ -1,4 +1,5 @@
 import { PortAssignmentManager } from './portAssignmentManager';
+import { SwitchProfileManager } from './switchProfileManager'; // Import SwitchProfileManager
 
 class ConfigGenerator {
     constructor(switchProfileManager, portRules) {
@@ -356,9 +357,16 @@ function generateVPCLoopback(switchName) {
 }
 
 export async function generateConfig(formData) {
+    // Initialize port rules
     const portRules = new PortAllocationRules();
     await portRules.initialize();
-    const configGenerator = new ConfigGenerator(new PortAllocationRules(), portRules);
+
+    // Initialize switch profile manager
+    const switchProfileManager = new SwitchProfileManager();
+    await switchProfileManager.initialize();
+
+    // Create config generator with initialized components
+    const configGenerator = new ConfigGenerator(switchProfileManager, portRules);
     return configGenerator.generateConfig(formData);
 }
 
