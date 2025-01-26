@@ -52,9 +52,9 @@ class ConfigGenerator {
             leafSwitches: formData.numLeafSwitches,
             spineSwitches: formData.numSpineSwitches,
             uplinksPerLeaf: formData.uplinksPerLeaf,
-            totalServerPorts: formData.numServerPorts,
-            leafModel: formData.leafSwitchModel,
-            spineModel: formData.spineSwitchModel
+            totalServerPorts: formData.totalServerPorts,
+            leafModel: formData.leafModel,
+            spineModel: formData.spineModel
         });
 
         if (!validation.isValid) {
@@ -66,9 +66,9 @@ class ConfigGenerator {
             leafSwitches: formData.numLeafSwitches,
             spineSwitches: formData.numSpineSwitches,
             uplinksPerLeaf: formData.uplinksPerLeaf,
-            totalServerPorts: formData.numServerPorts,
-            leafModel: formData.leafSwitchModel,
-            spineModel: formData.spineSwitchModel
+            totalServerPorts: formData.totalServerPorts,
+            leafModel: formData.leafModel,
+            spineModel: formData.spineModel
         });
 
         // Generate the final configuration using port assignments
@@ -288,100 +288,83 @@ export async function generateConfig(formData) {
         await portRules.initialize();
     }
 
-    // Get effective profiles for the switches
-    const spineProfile = await portRules.getEffectiveProfile(formData.topology.spines.model);
-    const leafProfile = await portRules.getEffectiveProfile(formData.topology.leaves.model);
+    // Create a configuration generator instance with the initialized port rules
+    const configGenerator = new ConfigGenerator(portRules);
 
-    // Validate port assignments
-    const validFabricPortsPerLeaf = portRules.getValidPorts(formData.topology.leaves.model, 'fabric').length;
-    if (formData.topology.leaves.fabricPortsPerLeaf > validFabricPortsPerLeaf) {
-        throw new Error(`Too many fabric ports requested. Maximum allowed is ${validFabricPortsPerLeaf}`);
+    // Generate port assignments and configuration
+    try {
+        const config = await configGenerator.generateConfig({
+            numLeafSwitches: formData.topology.leaves.count,
+            numSpineSwitches: formData.topology.spines.count,
+            uplinksPerLeaf: formData.topology.leaves.fabricPortsPerLeaf,
+            totalServerPorts: formData.topology.leaves.totalServerPorts,
+            leafModel: formData.topology.leaves.model,
+            spineModel: formData.topology.spines.model,
+            fabricName: formData.topology.name || 'default-fabric',
+            description: formData.topology.description || '',
+            switchSerials: formData.switchSerials
+        });
+
+        const configs = [];
+
+        // Add VLANNamespace
+        configs.push(generateVLANNamespace(formData.vlanNamespace.ranges));
+
+        // Add IPv4Namespace
+        formData.ipv4Namespaces.forEach(ns => {
+            configs.push(generateIPv4Namespace(ns.name, ns.subnets));
+        });
+
+        // Generate switch configurations using the port assignments from config
+        config.fabric.switches.leaves.forEach(leaf => {
+            configs.push(generateSwitch(
+                leaf.id,
+                leaf.model,
+                'leaf',
+                formData.switchSerials[leaf.id],
+                {
+                    breakout: formData.topology.leaves.fabricPortConfig.breakout,
+                    serverBreakout: formData.topology.leaves.serverPortConfig.breakout
+                }
+            ));
+
+            // Add VPC loopback for each leaf
+            configs.push(generateVPCLoopback(leaf.id));
+        });
+
+        config.fabric.switches.spines.forEach(spine => {
+            configs.push(generateSwitch(
+                spine.id,
+                spine.model,
+                'spine',
+                formData.switchSerials[spine.id],
+                {
+                    breakout: formData.topology.spines.fabricPortConfig.breakout
+                }
+            ));
+        });
+
+        // Generate fabric connections
+        config.fabric.switches.leaves.forEach(leaf => {
+            leaf.ports.fabric.forEach((fabricPort, index) => {
+                const spineIndex = Math.floor(index / formData.topology.leaves.fabricPortsPerLeaf);
+                const spineName = generateSwitchName(formData.topology.spines.model, spineIndex);
+                const spinePortIndex = index % formData.topology.spines.count;
+                
+                configs.push(generateFabricConnection(
+                    spineName,
+                    leaf.id,
+                    fabricPort.id,
+                    config.fabric.switches.spines[spineIndex].ports.fabric[spinePortIndex].id
+                ));
+            });
+        });
+
+        return configs;
+    } catch (error) {
+        console.error('Error generating configuration:', error);
+        throw error;
     }
-
-    const validServerPorts = portRules.getValidPorts(formData.topology.leaves.model, 'server');
-    const totalServerPortsAvailable = validServerPorts.length * formData.topology.leaves.count;
-    if (formData.topology.leaves.totalServerPorts > totalServerPortsAvailable) {
-        throw new Error(`Too many server ports requested. Maximum available is ${totalServerPortsAvailable}`);
-    }
-
-    const configs = [];
-  
-    // Add VLANNamespace
-    configs.push(generateVLANNamespace(formData.vlanNamespace.ranges));
-
-    // Add IPv4Namespace
-    formData.ipv4Namespaces.forEach(ns => {
-        configs.push(generateIPv4Namespace(ns.name, ns.subnets));
-    });
-
-    // Generate spine switches
-    const spineNames = [];
-    for (let i = 0; i < formData.topology.spines.count; i++) {
-        const name = generateSwitchName(formData.topology.spines.model, i);
-        spineNames.push(name);
-        configs.push(generateSwitch(
-            name,
-            formData.topology.spines.model,
-            'spine',
-            formData.switchSerials[name],
-            {
-                breakout: formData.topology.spines.fabricPortConfig.breakout
-            }
-        ));
-    }
-
-    // Generate leaf switches
-    const leafNames = [];
-    for (let i = 0; i < formData.topology.leaves.count; i++) {
-        const name = generateSwitchName(formData.topology.leaves.model, i);
-        leafNames.push(name);
-        configs.push(generateSwitch(
-            name,
-            formData.topology.leaves.model,
-            'leaf',
-            formData.switchSerials[name],
-            {
-                breakout: formData.topology.leaves.fabricPortConfig.breakout,
-                serverBreakout: formData.topology.leaves.serverPortConfig.breakout
-            }
-        ));
-
-        // Add VPC loopback for each leaf
-        configs.push(generateVPCLoopback(name));
-    }
-
-    // Generate fabric connections
-    const fabricPortsPerSpine = Math.ceil(
-        (formData.topology.leaves.count * formData.topology.leaves.fabricPortsPerLeaf) / 
-        formData.topology.spines.count
-    );
-
-    let currentSpinePort = 1;
-    let currentSpineIndex = 0;
-
-    // For each leaf switch
-    leafNames.forEach((leafName, leafIndex) => {
-        // Calculate which ports to use on this leaf
-        const leafPortStart = 49; // First fabric port on S5248
-        
-        // For each fabric port needed on this leaf
-        for (let i = 0; i < formData.topology.leaves.fabricPortsPerLeaf; i++) {
-            const spineName = spineNames[currentSpineIndex];
-            const spinePort = getPortName(spineName, currentSpinePort, formData.topology.spines.fabricPortConfig.breakout);
-            const leafPort = getPortName(leafName, leafPortStart + i, formData.topology.leaves.fabricPortConfig.breakout);
-
-            configs.push(generateFabricConnection(spineName, leafName, spinePort, leafPort));
-
-            // Move to next spine port/switch
-            currentSpinePort++;
-            if (currentSpinePort > fabricPortsPerSpine) {
-                currentSpinePort = 1;
-                currentSpineIndex = (currentSpineIndex + 1) % spineNames.length;
-            }
-        }
-    });
-
-    return { configs };
 }
 
 export function generateSwitchName(model, index) {
