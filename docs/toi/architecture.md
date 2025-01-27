@@ -176,6 +176,111 @@ Metal is a configuration generation tool for network fabric designs. It takes us
      }
      ```
 
+5. **Form Component** (`form.jsx`)
+   - Multi-step form implementation
+   - Component Structure:
+     ```javascript
+     // Main component structure
+     Form
+     ├── Step 1: Basic Configuration
+     │   ├── VLAN Range
+     │   │   ├── From input
+     │   │   └── To input
+     │   ├── IPv4 Subnet
+     │   ├── Spine Configuration
+     │   │   ├── Model select
+     │   │   ├── Quantity input
+     │   │   └── Fabric Port Breakout select
+     │   ├── Leaf Configuration
+     │   │   ├── Model select
+     │   │   ├── Quantity input
+     │   │   ├── Fabric Ports Per Leaf input
+     │   │   └── Fabric Port Breakout select
+     │   └── Server Configuration
+     │       ├── Server Port Configuration select
+     │       ├── Connections Per Server select
+     │       ├── Breakout Type select
+     │       └── Total Server Ports input
+     │
+     └── Step 2: Switch Serial Numbers
+         └── Serial Number inputs (one per switch)
+     ```
+   - Responsive Design:
+     ```css
+     /* Key styling patterns */
+     .object-controls {
+       display: flex;
+       flex-wrap: wrap;
+       gap: 1rem;
+       padding: 1rem;
+     }
+
+     .object-controls > div {
+       flex: 1 1 auto;
+       min-width: 200px;  // Prevents field squeezing
+       max-width: 100%;
+     }
+
+     .field-group {
+       display: flex;
+       gap: 1rem;
+       margin-bottom: 1rem;
+     }
+
+     .switch-serials-group {
+       display: flex;
+       flex-direction: column;
+       gap: 1rem;
+     }
+     ```
+   - State Management:
+     ```javascript
+     // Form state structure
+     {
+       vlanNamespace: {
+         ranges: [{ from: number, to: number }]
+       },
+       ipv4Namespaces: [{
+         subnets: [string]  // CIDR notation
+       }],
+       topology: {
+         spines: {
+           model: string,
+           count: number,
+           fabricPortConfig: {
+             breakout: string | null
+           }
+         },
+         leaves: {
+           model: string,
+           count: number,
+           fabricPortsPerLeaf: number,
+           fabricPortConfig: {
+             breakout: string | null
+           }
+         }
+       },
+       serverConfig: {
+         serverConfigType: string,
+         connectionsPerServer: number,
+         breakoutType: string,
+         totalServerPorts: number
+       },
+       switchSerials: {
+         [switchName: string]: string
+       }
+     }
+     ```
+   - Key Features:
+     - Responsive layout adapting to screen width
+     - Fields wrap to new rows when needed
+     - Minimum field width to prevent squeezing
+     - Consistent spacing and alignment
+     - Proper field grouping and organization
+     - Clear field labels and sections
+     - State preservation between steps
+     - Validation for all inputs
+
 ### CSS Architecture (`/src/frontend/css/`)
 - BEM-like naming convention
 - Visual hierarchy:

@@ -59,6 +59,13 @@
 - Empty object display as "{}"
 - Monospace font for all fields
 - Horizontal scrolling for wide content
+- Responsive form layout:
+  * Fields wrap to new rows when needed
+  * Minimum field width prevents squeezing
+  * Proper spacing and alignment
+  * Clear field labels and sections
+  * Vertical stacking for serial number inputs
+  * Consistent spacing between form sections
 
 ## In Progress Features
 
@@ -86,10 +93,9 @@
 - Need to add form validation error messages
 - Need to add loading states for async operations
 - Need to add confirmation for destructive actions
-- Need to improve responsive design for very narrow screens
+- Need to improve empty state handling for arrays
 - Need to implement field-level validation with error messages
 - Need to add visual indicators for required fields
-- Need to improve empty state handling for arrays
 
 ## Critical Dependencies
 
