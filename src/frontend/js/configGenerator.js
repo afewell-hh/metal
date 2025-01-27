@@ -123,15 +123,10 @@ export class ConfigGenerator {
                 profile: model,
                 role: role,
                 description: name,
-                boot: {},
+                boot: config.serial ? { serial: config.serial } : {},
                 portBreakouts: {}  // Always empty for now
             }
         };
-
-        // Add serial number if provided
-        if (config.serial) {
-            switchObj.spec.boot.serial = config.serial;
-        }
 
         return switchObj;
     }
