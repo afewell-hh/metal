@@ -25,6 +25,8 @@ export class ConfigGenerator {
                 await this.switchProfileManager.initialize();
             }
 
+            console.log('Form data switch serials:', formData.switchSerials);
+
             // Get switch profiles
             const spineModel = formData.topology.spines.model;
             const leafModel = formData.topology.leaves.model;
@@ -58,10 +60,12 @@ export class ConfigGenerator {
             for (let i = 0; i < formData.topology.spines.count; i++) {
                 const spineName = this.getSwitchNameFromProfile(spineModel, i + 1);
                 usedPorts[spineName] = [];
+                console.log('Generating spine switch:', spineName, 'with serial:', formData.switchSerials[spineName]);
                 const spineObj = this.generateSwitch(spineName, spineModel, 'spine', {
                     portBreakouts: portAssignments.configs.spines[i].portBreakouts || {},
                     serial: formData.switchSerials[spineName]
                 });
+                console.log('Generated spine object:', spineObj);
                 spines.push(spineObj);
                 k8sObjects.push(spineObj);
             }
@@ -71,10 +75,12 @@ export class ConfigGenerator {
             for (let i = 0; i < formData.topology.leaves.count; i++) {
                 const leafName = this.getSwitchNameFromProfile(leafModel, i + 1);
                 usedPorts[leafName] = [];
+                console.log('Generating leaf switch:', leafName, 'with serial:', formData.switchSerials[leafName]);
                 const leafObj = this.generateSwitch(leafName, leafModel, 'leaf', {
                     portBreakouts: portAssignments.configs.leaves[i].portBreakouts || {},
                     serial: formData.switchSerials[leafName]
                 });
+                console.log('Generated leaf object:', leafObj);
                 leaves.push(leafObj);
                 k8sObjects.push(leafObj);
             }
