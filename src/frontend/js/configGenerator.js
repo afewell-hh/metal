@@ -117,10 +117,7 @@ export class ConfigGenerator {
             apiVersion: 'wiring.githedgehog.com/v1beta1',
             kind: 'Switch',
             metadata: {
-                name: name,
-                annotations: {
-                    'type.hhfab.githedgehog.com': 'hw'
-                }
+                name: name
             },
             spec: {
                 profile: model,
@@ -133,7 +130,6 @@ export class ConfigGenerator {
 
         // Add serial number if provided
         if (config.serial) {
-            switchObj.metadata.annotations['serial.hhfab.githedgehog.com'] = `ssh://192.168.88.10:${config.serial}`;
             switchObj.spec.boot.serial = config.serial;
         }
 
