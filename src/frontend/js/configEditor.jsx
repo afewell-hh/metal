@@ -156,64 +156,68 @@ const ConfigEditor = ({ configs, onSave }) => {
 
   return (
     <div className="config-editor">
-      {Object.entries(objects).map(([kind, items]) => (
-        <div key={kind} className="object-group">
-          <div className="section-header">
-            <h3>{kind} Objects</h3>
-            <button
-              className="add-object-button"
-              onClick={() => handleAddObject(kind)}
-            >
-              Add {kind}
-            </button>
-          </div>
-          {items.map((obj, index) => (
-            <div key={index} className="object-card">
-              <div className="object-controls">
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={obj._isVisible}
-                    onChange={() => handleToggleVisibility(kind, index)}
-                  />
-                  Include in Configuration
-                </label>
-                <button
-                  onClick={() => handleToggleEdit(kind, index)}
-                  className="edit-button"
-                >
-                  {obj._isEditing ? 'Done' : 'Edit'}
-                </button>
-                <button
-                  onClick={() => handleDelete(kind, index)}
-                  className="delete-button"
-                >
-                  Delete
-                </button>
-              </div>
-              <AceEditor
-                mode="yaml"
-                theme="github"
-                value={obj._yamlText}
-                onChange={(newValue) => handleYamlChange(kind, index, newValue)}
-                readOnly={!obj._isEditing}
-                width="100%"
-                minLines={5}
-                maxLines={30}
-                showPrintMargin={false}
-                showGutter={true}
-                highlightActiveLine={obj._isEditing}
-                className={obj._isEditing ? '' : 'readonly'}
-                setOptions={{
-                  showLineNumbers: true,
-                  tabSize: 2,
-                  useWorker: false
-                }}
-              />
+      <h1>Hedgehog Metal Configuration Generator</h1>
+      <h2 className="subtitle">Edit Generated Configuration</h2>
+      <div className="editor-container">
+        {Object.entries(objects).map(([kind, items]) => (
+          <div key={kind} className="object-group">
+            <div className="section-header">
+              <h3>{kind} Objects</h3>
+              <button
+                className="add-object-button"
+                onClick={() => handleAddObject(kind)}
+              >
+                Add {kind}
+              </button>
             </div>
-          ))}
-        </div>
-      ))}
+            {items.map((obj, index) => (
+              <div key={index} className="object-card">
+                <div className="object-controls">
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={obj._isVisible}
+                      onChange={() => handleToggleVisibility(kind, index)}
+                    />
+                    Include in Configuration
+                  </label>
+                  <button
+                    onClick={() => handleToggleEdit(kind, index)}
+                    className="edit-button"
+                  >
+                    {obj._isEditing ? 'Done' : 'Edit'}
+                  </button>
+                  <button
+                    onClick={() => handleDelete(kind, index)}
+                    className="delete-button"
+                  >
+                    Delete
+                  </button>
+                </div>
+                <AceEditor
+                  mode="yaml"
+                  theme="github"
+                  value={obj._yamlText}
+                  onChange={(newValue) => handleYamlChange(kind, index, newValue)}
+                  readOnly={!obj._isEditing}
+                  width="100%"
+                  minLines={5}
+                  maxLines={30}
+                  showPrintMargin={false}
+                  showGutter={true}
+                  highlightActiveLine={obj._isEditing}
+                  className={obj._isEditing ? '' : 'readonly'}
+                  setOptions={{
+                    showLineNumbers: true,
+                    tabSize: 2,
+                    useWorker: false
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
       <button onClick={handleSave} className="save-button">Save</button>
     </div>
   );
