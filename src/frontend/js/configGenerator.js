@@ -4,6 +4,22 @@ import { PortProfileAnalyzer } from './portProfileAnalyzer';
 import { ConnectionDistributor } from './connectionDistributor';
 import { ServerConnectionGenerator } from './serverConnectionGenerator';
 
+// Standalone utility functions
+export function generateSwitchName(profile, index) {
+    // Extract model number for different switch types
+    if (profile.startsWith('dell-s')) {
+        // For Dell switches: dell-s5232f-on -> s5232-XX
+        const modelNum = profile.match(/dell-s(\d+)f-on/)[1];
+        return `s${modelNum}-${String(index).padStart(2, '0')}`;
+    } else if (profile.startsWith('celestica-ds')) {
+        // For Celestica switches: celestica-ds3000 -> ds3000-XX
+        const modelNum = profile.match(/celestica-ds(\d+)/)[1];
+        return `ds${modelNum}-${String(index).padStart(2, '0')}`;
+    }
+    // Fallback case - should not happen with valid profiles
+    throw new Error(`Unsupported switch profile format: ${profile}`);
+}
+
 export class ConfigGenerator {
     constructor(switchProfileManager, portRules) {
         if (!switchProfileManager || !portRules) {
@@ -137,20 +153,9 @@ export class ConfigGenerator {
         return switchObj;
     }
 
-    // Helper function to generate switch names from switch profiles
+    // Use the standalone function for switch name generation
     getSwitchNameFromProfile(profile, index) {
-        // Extract model number for different switch types
-        if (profile.startsWith('dell-s')) {
-            // For Dell switches: dell-s5232f-on -> s5232-XX
-            const modelNum = profile.match(/dell-s(\d+)f-on/)[1];
-            return `s${modelNum}-${String(index).padStart(2, '0')}`;
-        } else if (profile.startsWith('celestica-ds')) {
-            // For Celestica switches: celestica-ds3000 -> ds3000-XX
-            const modelNum = profile.match(/celestica-ds(\d+)/)[1];
-            return `ds${modelNum}-${String(index).padStart(2, '0')}`;
-        }
-        // Fallback case - should not happen with valid profiles
-        throw new Error(`Unsupported switch profile format: ${profile}`);
+        return generateSwitchName(profile, index);
     }
 
     generateFabricConnections(formData, spines, leaves, portAssignments) {
@@ -410,11 +415,6 @@ export class ConfigGenerator {
             spec
         };
     }
-}
-
-// Export standalone utility functions
-export function generateSwitchName(profile, index) {
-    return new ConfigGenerator(null, null).getSwitchNameFromProfile(profile, index);
 }
 
 // Main config generation function that uses ConfigGenerator class
