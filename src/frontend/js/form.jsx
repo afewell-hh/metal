@@ -101,16 +101,15 @@ export function ConfigForm() {
     if (formData.topology) {
       const newSerials = {};
       
-      // Clear all existing serials when topology changes
       // Generate spine switch names
       for (let i = 0; i < formData.topology.spines.count; i++) {
-        const name = generateSwitchName(formData.topology.spines.model, i);
+        const name = generateSwitchName(formData.topology.spines.model, i + 1);
         newSerials[name] = 'TODO';
       }
 
       // Generate leaf switch names
       for (let i = 0; i < formData.topology.leaves.count; i++) {
-        const name = generateSwitchName(formData.topology.leaves.model, i);
+        const name = generateSwitchName(formData.topology.leaves.model, i + 1);
         newSerials[name] = 'TODO';
       }
 

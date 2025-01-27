@@ -413,8 +413,8 @@ export class ConfigGenerator {
 }
 
 // Export standalone utility functions
-export function generateSwitchName(role, index) {
-    return `${role}-${index + 1}`;
+export function generateSwitchName(profile, index) {
+    return new ConfigGenerator(null, null).getSwitchNameFromProfile(profile, index);
 }
 
 // Main config generation function that uses ConfigGenerator class
