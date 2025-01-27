@@ -113,15 +113,31 @@ export class ConfigGenerator {
     }
 
     generateSwitch(name, model, role, config) {
-        return this.createK8sObject('Switch', name, {
-            profile: model,
-            role: role,
-            description: name,
-            boot: {
-                serial: config.serial
+        const switchObj = {
+            apiVersion: 'wiring.githedgehog.com/v1beta1',
+            kind: 'Switch',
+            metadata: {
+                name: name,
+                annotations: {
+                    'type.hhfab.githedgehog.com': 'hw'
+                }
             },
-            portBreakouts: config.portBreakouts || {}
-        });
+            spec: {
+                profile: model,
+                role: role,
+                description: name,
+                boot: {},
+                portBreakouts: {}  // Always empty for now
+            }
+        };
+
+        // Add serial number if provided
+        if (config.serial) {
+            switchObj.metadata.annotations['serial.hhfab.githedgehog.com'] = `ssh://192.168.88.10:${config.serial}`;
+            switchObj.spec.boot.serial = config.serial;
+        }
+
+        return switchObj;
     }
 
     // Helper function to generate switch names from switch profiles
