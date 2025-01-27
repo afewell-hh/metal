@@ -1,158 +1,272 @@
 .config-editor {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  background: #f5f5f5;
+  padding: 2rem;
 }
 
-.config-editor h2 {
-  color: #2c3e50;
-  margin-bottom: 30px;
-  padding-bottom: 10px;
-  border-bottom: 2px solid #e0e0e0;
+.config-editor h1 {
+  color: #1a2b4b;
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  text-align: center;
 }
 
-.config-section {
-  margin-bottom: 40px;
-  padding: 25px;
-  background: white;
+.config-editor .subtitle {
+  color: #4b5563;
+  font-size: 1.25rem;
+  font-weight: normal;
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.editor-container {
+  background: linear-gradient(to bottom, #f8fafc, #f1f5f9);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  padding: 2rem;
 }
 
-.config-section h3 {
-  margin: -25px -25px 25px -25px;
-  padding: 15px 25px;
-  background: #2c3e50;
-  color: white;
-  border-radius: 8px 8px 0 0;
-  font-size: 16px;
-  font-weight: 500;
+.object-group {
+  margin-bottom: 2rem;
+}
+
+.object-group:last-child {
+  margin-bottom: 0;
 }
 
 .section-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
-  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 1rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(to right, #1e40af, #1d4ed8);
+  border-radius: 6px;
+  color: white;
 }
 
 .section-header h3 {
-  color: #333;
   margin: 0;
-}
-
-.add-object-button {
-  background: #0550ae;
-  color: white;
-  border: 1px solid #0550ae;
-  padding: 6px 12px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.add-object-button:hover {
-  background: #043c7c;
-}
-
-.object-group {
-  margin-bottom: 30px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 6px;
-  padding: 20px;
+  font-size: 1.25rem;
+  font-weight: 500;
 }
 
 .object-card {
-  background: #fff;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  margin-bottom: 15px;
+  background: linear-gradient(120deg, #e0f2fe, #dbeafe);
+  border: 1px solid #bfdbfe;
+  border-radius: 6px;
+  margin-bottom: 1.5rem;
   overflow: hidden;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease-in-out;
 }
 
-.object-card:last-child {
-  margin-bottom: 0;
+.object-card:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
 .object-controls {
-  background: #f5f5f5;
-  padding: 12px 15px;
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 12px;
-  border-bottom: 1px solid #ddd;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid #bfdbfe;
 }
 
 .object-controls label {
   display: flex;
   align-items: center;
-  gap: 8px;
-  cursor: pointer;
+  gap: 0.5rem;
+  color: #1e40af;
   font-weight: 500;
-  color: #444;
 }
 
 .object-controls input[type="checkbox"] {
-  margin: 0;
-  width: 16px;
-  height: 16px;
+  width: 1rem;
+  height: 1rem;
   border-radius: 3px;
-  border: 1px solid #0550ae;
+  border: 2px solid #1e40af;
   cursor: pointer;
+}
+
+.add-object-button {
+  background-color: #ffffff;
+  color: #1e40af;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-object-button:hover {
+  background-color: #f8fafc;
+  transform: translateY(-1px);
 }
 
 .edit-button,
-.delete-button,
-.save-button {
-  padding: 6px 12px;
+.delete-button {
+  padding: 0.5rem 1rem;
+  border: none;
   border-radius: 4px;
-  border: 1px solid;
-  cursor: pointer;
-  font-size: 14px;
   font-weight: 500;
-  transition: all 0.2s ease;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .edit-button {
-  background: #fff;
-  border-color: #0550ae;
-  color: #0550ae;
+  background-color: #2563eb;
+  color: white;
+  margin-right: 0.5rem;
 }
 
 .edit-button:hover {
-  background: #f0f7ff;
+  background-color: #1d4ed8;
 }
 
 .delete-button {
-  background: #fff;
-  border-color: #dc3545;
-  color: #dc3545;
-  margin-left: auto;
+  background-color: #ef4444;
+  color: white;
 }
 
 .delete-button:hover {
-  background: #fff5f5;
+  background-color: #dc2626;
 }
 
 .save-button {
-  background: #0550ae;
-  border-color: #0550ae;
+  display: block;
+  margin: 2rem auto 0;
+  padding: 0.75rem 2rem;
+  background-color: #2563eb;
   color: white;
-  padding: 8px 16px;
-  font-size: 16px;
-  margin-top: 20px;
+  border: none;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .save-button:hover {
-  background: #043c7c;
+  background-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+/* AceEditor styling */
+.ace_editor {
+  border-radius: 0 0 6px 6px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
+}
+
+.ace_editor.readonly {
+  background-color: #f8fafc;
+}
+
+.ace_gutter {
+  background-color: #f1f5f9 !important;
+}
+
+.ace_active-line {
+  background-color: #dbeafe !important;
+}
+
+/* Ensure proper spacing for the editor */
+.ace-github {
+  padding: 1rem 0;
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: white;
+  padding: 30px;
+  border-radius: 8px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.modal-content h3 {
+  margin: 0 0 20px 0;
+  color: #2c3e50;
+}
+
+.modal-content p {
+  margin: 10px 0;
+  color: #34495e;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.cancel-button {
+  background-color: #95a5a6;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.cancel-button:hover {
+  background-color: #7f8c8d;
+}
+
+.confirm-delete-button {
+  background-color: #e74c3c;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.confirm-delete-button:hover {
+  background-color: #c0392b;
+}
+
+/* Disabled state for invisible objects */
+.config-object.invisible {
+  opacity: 0.6;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .yaml-field {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  .yaml-key {
+    min-width: 100px;
+  }
+
+  .yaml-value input {
+    max-width: none;
+  }
+
+  .yaml-indent {
+    padding-left: 20px;
+  }
 }
 
 .yaml-field {
@@ -252,118 +366,4 @@
 
 .back-button:hover {
   background-color: #7f8c8d;
-}
-
-/* Ace Editor Customizations */
-.ace_editor {
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'source-code-pro', monospace;
-  font-size: 14px;
-  line-height: 1.5;
-  padding: 10px 0;
-}
-
-.ace_editor.readonly {
-  background-color: #f8f9fa;
-  opacity: 0.9;
-}
-
-.ace_editor.readonly .ace_cursor {
-  display: none !important;
-}
-
-.ace_editor.readonly .ace_gutter {
-  background-color: #f0f0f0;
-}
-
-/* Modal Styles */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 30px;
-  border-radius: 8px;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.modal-content h3 {
-  margin: 0 0 20px 0;
-  color: #2c3e50;
-}
-
-.modal-content p {
-  margin: 10px 0;
-  color: #34495e;
-}
-
-.modal-buttons {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  margin-top: 24px;
-}
-
-.cancel-button {
-  background-color: #95a5a6;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.cancel-button:hover {
-  background-color: #7f8c8d;
-}
-
-.confirm-delete-button {
-  background-color: #e74c3c;
-  color: white;
-  border: none;
-  padding: 8px 16px;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-
-.confirm-delete-button:hover {
-  background-color: #c0392b;
-}
-
-/* Disabled state for invisible objects */
-.config-object.invisible {
-  opacity: 0.6;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .yaml-field {
-    flex-wrap: wrap;
-    white-space: normal;
-  }
-
-  .yaml-key {
-    min-width: 100px;
-  }
-
-  .yaml-value input {
-    max-width: none;
-  }
-
-  .yaml-indent {
-    padding-left: 20px;
-  }
 }
