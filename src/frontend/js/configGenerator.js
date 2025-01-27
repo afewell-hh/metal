@@ -87,7 +87,7 @@ export class ConfigGenerator {
             const serverObjects = this.generateServerObjects(formData);
             k8sObjects.push(...serverObjects);
 
-            const serverConnections = this.generateServerConnections(formData, leaves);
+            const serverConnections = this.generateServerConnections(formData, leaves, portAssignments);
             k8sObjects.push(...serverConnections);
 
             return k8sObjects;
@@ -235,91 +235,147 @@ export class ConfigGenerator {
         return servers;
     }
 
-    generateServerConnections(formData, leaves) {
+    generateServerConnections(formData, leaves, portAssignments) {
         const connections = [];
         const serverCount = formData.serverConfig.totalServerPorts;
-        const serversPerLeaf = Math.ceil(serverCount / leaves.length);
-        const serverType = formData.serverConfig.serverConfigType;
         const connectionsPerServer = formData.serverConfig.connectionsPerServer;
+        const serverConfigType = formData.serverConfig.serverConfigType;
+
+        console.log('Generating server connections:', {
+            serverCount,
+            connectionsPerServer,
+            serverConfigType,
+            leavesCount: leaves.length
+        });
 
         // For each server
-        for (let i = 0; i < serverCount; i++) {
-            const serverName = `server-${i + 1}`;
-            const leafIndex = Math.floor(i / serversPerLeaf);
-            const leaf = leaves[leafIndex];
-            const portBase = (i % serversPerLeaf) + 1;
+        for (let serverIndex = 0; serverIndex < serverCount; serverIndex++) {
+            const serverNum = serverIndex + 1;
+            const serverName = `server-${serverNum}`;
+            let interfaceIndex = 1; // For enp2s{N} interfaces
 
-            if (leaf) {
-                const baseSwitchPort = `${leaf.metadata.name}/E${portBase}`;
+            // Get the leaf switch(es) and ports for this server based on configuration type
+            switch (serverConfigType) {
+                case 'unbundled-SH': {
+                    // Single connection to a single leaf
+                    const leafIndex = Math.floor(serverIndex / Math.floor(serverCount / leaves.length));
+                    const leaf = leaves[leafIndex];
+                    const leafName = this.getSwitchNameFromProfile(leaf.spec.profile, leafIndex + 1);
+                    
+                    const links = [{
+                        server: {
+                            port: `${serverName}/enp2s${interfaceIndex}`
+                        },
+                        switch: {
+                            port: `${leafName}/E1/${serverIndex + 1}`
+                        }
+                    }];
 
-                switch (serverType) {
-                    case 'unbundled-SH':
-                        connections.push(this.createK8sObject('Connection', 
-                            `${serverName}--unbundled--${leaf.metadata.name}`, {
-                            endpoints: [
-                                {
-                                    switch: leaf.metadata.name,
-                                    port: baseSwitchPort
-                                }
-                            ],
-                            type: 'server'
-                        }));
-                        break;
+                    connections.push(
+                        this.createK8sObject('Connection',
+                            `${serverName}--unbundled--${leafName}`,
+                            { unbundled: { links } }
+                        )
+                    );
+                    break;
+                }
+                case 'bundled-LAG-SH': {
+                    // Multiple connections to the same leaf (LAG)
+                    const leafIndex = Math.floor(serverIndex / Math.floor(serverCount / leaves.length));
+                    const leaf = leaves[leafIndex];
+                    const leafName = this.getSwitchNameFromProfile(leaf.spec.profile, leafIndex + 1);
+                    const links = [];
 
-                    case 'bundled-LAG-SH':
-                        connections.push(this.createK8sObject('Connection',
-                            `${serverName}--bundled--${leaf.metadata.name}`, {
-                            endpoints: [
-                                {
-                                    switch: leaf.metadata.name,
-                                    port: baseSwitchPort
-                                },
-                                {
-                                    switch: leaf.metadata.name,
-                                    port: `${leaf.metadata.name}/E${portBase + 1}`
-                                }
-                            ],
-                            type: 'server'
-                        }));
-                        break;
+                    // Add multiple links for the LAG
+                    for (let i = 0; i < connectionsPerServer; i++) {
+                        links.push({
+                            server: {
+                                port: `${serverName}/enp2s${interfaceIndex + i}`
+                            },
+                            switch: {
+                                port: `${leafName}/E1/${serverIndex * connectionsPerServer + i + 1}`
+                            }
+                        });
+                    }
 
-                    case 'bundled-mclag':
-                        const nextLeafIndex = (leafIndex + 1) % leaves.length;
-                        const nextLeaf = leaves[nextLeafIndex];
-                        connections.push(this.createK8sObject('Connection',
-                            `${serverName}--mclag--${leaf.metadata.name}--${nextLeaf.metadata.name}`, {
-                            endpoints: [
-                                {
-                                    switch: leaf.metadata.name,
-                                    port: baseSwitchPort
-                                },
-                                {
-                                    switch: nextLeaf.metadata.name,
-                                    port: `${nextLeaf.metadata.name}/E${portBase}`
-                                }
-                            ],
-                            type: 'server'
-                        }));
-                        break;
+                    connections.push(
+                        this.createK8sObject('Connection',
+                            `${serverName}--bundled--${leafName}`,
+                            { bundled: { links } }
+                        )
+                    );
+                    break;
+                }
+                case 'bundled-mclag': {
+                    // Connections split between two leaves (MLAG)
+                    const leafPairIndex = Math.floor(serverIndex / Math.floor(serverCount / (leaves.length / 2)));
+                    const leaf1 = leaves[leafPairIndex * 2];
+                    const leaf2 = leaves[leafPairIndex * 2 + 1];
+                    const leaf1Name = this.getSwitchNameFromProfile(leaf1.spec.profile, leafPairIndex * 2 + 1);
+                    const leaf2Name = this.getSwitchNameFromProfile(leaf2.spec.profile, leafPairIndex * 2 + 2);
+                    
+                    const links = [
+                        {
+                            server: {
+                                port: `${serverName}/enp2s${interfaceIndex}`
+                            },
+                            switch: {
+                                port: `${leaf1Name}/E1/${serverIndex + 1}`
+                            }
+                        },
+                        {
+                            server: {
+                                port: `${serverName}/enp2s${interfaceIndex + 1}`
+                            },
+                            switch: {
+                                port: `${leaf2Name}/E1/${serverIndex + 1}`
+                            }
+                        }
+                    ];
 
-                    case 'bundled-eslag':
-                        const eslagLeafIndex = (leafIndex + 1) % leaves.length;
-                        const eslagLeaf = leaves[eslagLeafIndex];
-                        connections.push(this.createK8sObject('Connection',
-                            `${serverName}--eslag--${leaf.metadata.name}--${eslagLeaf.metadata.name}`, {
-                            endpoints: [
-                                {
-                                    switch: leaf.metadata.name,
-                                    port: baseSwitchPort
-                                },
-                                {
-                                    switch: eslagLeaf.metadata.name,
-                                    port: `${eslagLeaf.metadata.name}/E${portBase}`
-                                }
-                            ],
-                            type: 'server'
-                        }));
-                        break;
+                    connections.push(
+                        this.createK8sObject('Connection',
+                            `${serverName}--mclag--${leaf1Name}--${leaf2Name}`,
+                            { mclag: { links } }
+                        )
+                    );
+                    break;
+                }
+                case 'bundled-eslag': {
+                    // Connections split between two non-MLAG leaves (ESLAG)
+                    const leaf1Index = serverIndex % leaves.length;
+                    const leaf2Index = (serverIndex + 1) % leaves.length;
+                    const leaf1 = leaves[leaf1Index];
+                    const leaf2 = leaves[leaf2Index];
+                    const leaf1Name = this.getSwitchNameFromProfile(leaf1.spec.profile, leaf1Index + 1);
+                    const leaf2Name = this.getSwitchNameFromProfile(leaf2.spec.profile, leaf2Index + 1);
+                    
+                    const links = [
+                        {
+                            server: {
+                                port: `${serverName}/enp2s${interfaceIndex}`
+                            },
+                            switch: {
+                                port: `${leaf1Name}/E1/${serverIndex + 1}`
+                            }
+                        },
+                        {
+                            server: {
+                                port: `${serverName}/enp2s${interfaceIndex + 1}`
+                            },
+                            switch: {
+                                port: `${leaf2Name}/E1/${serverIndex + 1}`
+                            }
+                        }
+                    ];
+
+                    connections.push(
+                        this.createK8sObject('Connection',
+                            `${serverName}--eslag--${leaf1Name}--${leaf2Name}`,
+                            { eslag: { links } }
+                        )
+                    );
+                    break;
                 }
             }
         }
