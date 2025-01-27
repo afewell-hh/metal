@@ -33,13 +33,13 @@ Metal is a configuration generation tool for network fabric designs. It takes us
   spec:
     # Type-specific fields
   ```
-- Port naming follows format: "device/port" (e.g., "spine-1/E1/1")
+- Port naming follows format: "device/port" (e.g., "s5232-01/E1/1")
 - Switch naming convention:
   ```javascript
   // Example switch name generation:
-  dell-s5232f-on -> s5232-01
-  celestica-ds4000 -> ds4000-01
-  edgecore-dcs501 -> dcs501-01
+  dell-s5232f-on -> s5232-01    // Dell switches
+  celestica-ds4000 -> ds4000-01 // Celestica switches
+  edgecore-dcs501 -> dcs501-01  // Edgecore switches
   ```
 - Fabric connection distribution:
   - Each leaf gets equal uplinks to each spine
@@ -50,6 +50,31 @@ Metal is a configuration generation tool for network fabric designs. It takes us
     Leaf 1 -> Spine 2: ports 1,2 (leaf ports 53,55)
     Leaf 2 -> Spine 1: ports 3,4 (leaf ports 49,51)
     Leaf 2 -> Spine 2: ports 3,4 (leaf ports 53,55)
+    ```
+- Server connection types and naming:
+  - Connection types:
+    1. Unbundled Single-Homed (unbundled-SH)
+    2. Bundled LAG Single-Homed (bundled-LAG-SH)
+    3. Bundled MCLAG (bundled-mclag)
+    4. Bundled ESLAG (bundled-eslag)
+  - Server port naming: "server-{N}/enp2s{M}"
+    ```yaml
+    # Example server connection object
+    apiVersion: wiring.githedgehog.com/v1beta1
+    kind: Connection
+    metadata:
+      name: server-1--mclag--s5248-01--s5248-02
+    spec:
+      mclag:
+        links:
+          - server:
+              port: server-1/enp2s1
+            switch:
+              port: s5248-01/E1/2
+          - server:
+              port: server-1/enp2s2
+            switch:
+              port: s5248-02/E1/2
     ```
 
 ### Switch Profiles (`/switch_profiles/`)

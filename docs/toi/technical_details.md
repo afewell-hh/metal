@@ -237,6 +237,69 @@
      * Invalid connection types
    - Include error context for debugging
 
+## Port Naming Conventions
+
+### Switch Port Names
+- Format: `{switch-name}/E1/{port-number}`
+- Examples:
+  * Dell switches: `s5232-01/E1/1`
+  * Celestica switches: `ds4000-01/E1/1`
+- Port numbers are sequential and unique per switch
+- E1 represents ASIC number (currently only single ASIC switches supported)
+
+### Server Port Names
+- Format: `server-{N}/enp2s{M}`
+- N: Sequential server number (1-based)
+- M: Sequential interface number (1-based)
+- Examples:
+  * First server, first interface: `server-1/enp2s1`
+  * First server, second interface: `server-1/enp2s2`
+
+## Connection Object Naming
+
+### Fabric Connections
+- Format: `{spine-name}--fabric--{leaf-name}`
+- Examples:
+  * `s5232-01--fabric--s5248-01`
+  * `ds4000-01--fabric--ds3000-01`
+
+### Server Connections
+1. Unbundled Single-Homed:
+   - Format: `server-{N}--unbundled--{leaf}`
+   - Example: `server-1--unbundled--s5248-01`
+
+2. Bundled LAG Single-Homed:
+   - Format: `server-{N}--bundled--{leaf}`
+   - Example: `server-1--bundled--s5248-01`
+
+3. MCLAG:
+   - Format: `server-{N}--mclag--{leaf1}--{leaf2}`
+   - Example: `server-1--mclag--s5248-01--s5248-02`
+
+4. ESLAG:
+   - Format: `server-{N}--eslag--{leaf1}--{leaf2}`
+   - Example: `server-1--eslag--s5248-01--s5248-02`
+
+## Port Allocation Rules
+
+### Fabric Ports
+- Defined in port allocation rules files
+- Example (Dell S5248F-ON):
+  ```yaml
+  fabric: ["49-56"]    # High-speed ports for fabric connections
+  ```
+- Spine ports increment sequentially per leaf
+- Leaf ports use specific ranges per spine
+
+### Server Ports
+- Defined in port allocation rules files
+- Example (Dell S5248F-ON):
+  ```yaml
+  server: ["1-48"]     # Lower speed ports for server connections
+  ```
+- Sequential allocation within server port range
+- Port reuse prevention per switch
+
 ## Critical Dependencies
 
 ### SwitchProfileManager

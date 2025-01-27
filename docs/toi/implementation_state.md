@@ -16,6 +16,13 @@
   * Even distribution across leaf switches
   * Port naming with breakout subports
   * Port availability tracking per switch
+- Server connection object generation:
+  * Support for all connection types (unbundled-SH, bundled-LAG-SH, bundled-mclag, bundled-eslag)
+  * Proper server port naming (enp2s{N})
+  * Switch port allocation from port allocation rules
+  * Connection object naming following Hedgehog conventions
+  * Proper metadata.name field generation
+  * Links array structure with server and switch endpoints
 
 ### Form Components
 - Multi-step form workflow:
