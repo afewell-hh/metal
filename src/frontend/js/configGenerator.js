@@ -1,204 +1,43 @@
 import { PortAssignmentManager } from './portAssignmentManager';
-import { SwitchProfileManager } from './switchProfileManager'; // Import SwitchProfileManager
+import { SwitchProfileManager } from './switchProfileManager';
 import { PortProfileAnalyzer } from './portProfileAnalyzer';
 import { ConnectionDistributor } from './connectionDistributor';
 import { ServerConnectionGenerator } from './serverConnectionGenerator';
 
-class ConfigGenerator {
+export class ConfigGenerator {
     constructor(switchProfileManager, portRules) {
         if (!switchProfileManager || !portRules) {
             throw new Error('ConfigGenerator requires switchProfileManager and portRules');
         }
-        this.portAssignmentManager = new PortAssignmentManager(switchProfileManager, portRules);
         this.switchProfileManager = switchProfileManager;
-    }
-
-    /**
-     * Gets the port speed from the switch profile
-     * @param {string} model - Switch model
-     * @param {string} port - Port identifier
-     * @returns {string} Port speed (e.g., "100G", "25G")
-     */
-    getPortSpeed(model, port) {
-        const profile = this.switchProfileManager.getEffectiveProfile(model);
-        return profile.getPortSpeed(port);
-    }
-
-    /**
-     * Formats port configuration with breakout information
-     * @param {Object} portConfig - Port configuration from port assignment
-     * @param {string} role - Port role (fabric/server)
-     * @returns {Object} Formatted port configuration
-     * @private
-     */
-    formatPortConfig(portConfig, role) {
-        const baseConfig = {
-            id: portConfig.id,
-            role: role,
-            speed: portConfig.speed
-        };
-
-        if (portConfig.breakout) {
-            return {
-                ...baseConfig,
-                breakout: portConfig.breakout,
-                subPorts: portConfig.subPorts.map(subPort => ({
-                    id: subPort,
-                    role: role,
-                    speed: portConfig.speed
-                }))
-            };
-        }
-
-        return baseConfig;
-    }
-
-    // Normalize model name to match profile format (replace hyphens with underscores)
-    normalizeModelName(model) {
-        return model.replace(/-/g, '_');
-    }
-
-    // Base function to create Kubernetes CRD objects
-    createK8sObject(kind, name, spec, apiVersion = 'wiring.githedgehog.com/v1beta1') {
-        return {
-            apiVersion,
-            kind,
-            metadata: {
-                name
-            },
-            spec
-        };
-    }
-
-    // Generate VLANNamespace configuration
-    generateVLANNamespace(ranges) {
-        return this.createK8sObject('VLANNamespace', 'default', { ranges });
-    }
-
-    // Generate IPv4Namespace configuration
-    generateIPv4Namespace(name, subnets) {
-        return this.createK8sObject('IPv4Namespace', name, { subnets }, 'vpc.githedgehog.com/v1beta1');
-    }
-
-    // Generate proper port name following Hedgehog format
-    generatePortName(deviceName, portNumber) {
-        return `${deviceName}/E1/${portNumber}`;
-    }
-
-    // Generate Switch configuration
-    generateSwitch(name, model, role, config) {
-        const normalizedModel = this.normalizeModelName(model);
-        const rolePrefix = role === 'spine' ? 'spine' : 'leaf';
-        const switchNumber = name.split('-')[1];
-
-        return this.createK8sObject('Switch', name, {
-            profile: normalizedModel,
-            role,
-            description: `${rolePrefix}-${switchNumber}`,
-            portBreakouts: config.portBreakouts || {},
-            boot: {
-                serial: config.serial
-            }
-        });
-    }
-
-    // Generate fabric connections between spine and leaf switches
-    generateFabricConnections(spines, leaves, config) {
-        const connections = [];
-        const uplinksPerLeaf = config.uplinksPerLeaf;
-        const numSpines = spines.length;
-
-        // For each leaf switch
-        leaves.forEach((leaf, leafIndex) => {
-            // Calculate how many uplinks should go to each spine
-            const uplinksPerSpine = Math.floor(uplinksPerLeaf / numSpines);
-            if (uplinksPerSpine === 0) {
-                throw new Error(`Cannot evenly distribute ${uplinksPerLeaf} uplinks across ${numSpines} spines`);
-            }
-
-            // For each spine switch
-            spines.forEach((spine, spineIndex) => {
-                const links = [];
-                
-                // Generate the links for this spine-leaf pair
-                for (let i = 0; i < uplinksPerSpine; i++) {
-                    // Calculate spine port number - each leaf gets a dedicated range on the spine
-                    const spinePort = leafIndex * uplinksPerSpine + i + 1;
-                    
-                    // Calculate leaf port number - distribute across 49,51,53,55
-                    // spineIndex determines which set of ports to use
-                    const leafPort = 49 + (spineIndex * uplinksPerSpine * 2) + (i * 2);
-                    
-                    links.push({
-                        spine: {
-                            port: `${spine.metadata.name}/E1/${spinePort}`
-                        },
-                        leaf: {
-                            port: `${leaf.metadata.name}/E1/${leafPort}`
-                        }
-                    });
-                }
-
-                if (links.length > 0) {
-                    connections.push(
-                        this.createK8sObject('Connection', 
-                            `${spine.metadata.name}--fabric--${leaf.metadata.name}`,
-                            { fabric: { links } }
-                        )
-                    );
-                }
-            });
-        });
-
-        return connections;
-    }
-
-    // Add server distribution helper functions
-    generateServerName(index) {
-        return `server-${index + 1}`;
-    }
-
-    generateSwitchName(model, index) {
-        const role = model.toLowerCase().includes('spine') ? 'spine' : 'leaf';
-        return `${role}-${index + 1}`;
-    }
-
-    distributeServersAcrossLeaves(serverCount, leafCount) {
-        if (serverCount <= 0) throw new Error('Server count must be positive');
-        if (leafCount <= 0) throw new Error('Leaf count must be positive');
-
-        // Calculate base number of servers per leaf and remainder
-        const baseServersPerLeaf = Math.floor(serverCount / leafCount);
-        const remainingServers = serverCount % leafCount;
-        
-        // Create distribution map
-        const distribution = {};
-        let currentServer = 0;
-        
-        for (let leafIndex = 0; leafIndex < leafCount; leafIndex++) {
-            const leafName = `leaf-${leafIndex + 1}`;
-            // Add one extra server to some leaves if we have remainders
-            const serversForThisLeaf = leafIndex < remainingServers ? 
-              baseServersPerLeaf + 1 : baseServersPerLeaf;
-            
-            distribution[leafName] = [];
-            for (let i = 0; i < serversForThisLeaf; i++) {
-                distribution[leafName].push(`server-${currentServer + 1}`);
-                currentServer++;
-            }
-        }
-        
-        return distribution;
-    }
-
-    generateServerPortName(index) {
-        return `enp${Math.floor(index/2)}s${(index % 2) + 1}`;
+        this.portRules = portRules;
+        this.portAssignmentManager = new PortAssignmentManager(portRules);
+        this.portProfileAnalyzer = new PortProfileAnalyzer();
+        this.connectionDistributor = new ConnectionDistributor();
+        this.serverConnectionGenerator = new ServerConnectionGenerator();
+        this.usedPorts = {};
     }
 
     async generateConfig(formData) {
         try {
-            // Validate the fabric design
-            const config = await this.portAssignmentManager.validateAndAssignPorts(formData);
+            // Ensure switch profiles are loaded
+            if (!this.switchProfileManager.initialized) {
+                await this.switchProfileManager.initialize();
+            }
+
+            // Get switch profiles
+            const spineModel = formData.topology.spines.model;
+            const leafModel = formData.topology.leaves.model;
+
+            const spineProfile = await this.switchProfileManager.getSwitchProfile(spineModel);
+            const leafProfile = await this.switchProfileManager.getSwitchProfile(leafModel);
+
+            if (!spineProfile || !leafProfile) {
+                throw new Error('Failed to load switch profiles');
+            }
+
+            // Generate port assignments
+            const portAssignments = await this.portAssignmentManager.validateAndAssignPorts(formData);
 
             // Generate all required Kubernetes CRD objects
             const k8sObjects = [];
@@ -211,20 +50,16 @@ class ConfigGenerator {
                 k8sObjects.push(this.generateIPv4Namespace(ns.name, ns.subnets));
             });
 
-            // Generate switch configurations
-            const spineModel = formData.topology.spines.model;
-            const leafModel = formData.topology.leaves.model;
-
             // Initialize port tracking
             const usedPorts = {};
 
             // Generate spine switch objects
             const spines = [];
             for (let i = 0; i < formData.topology.spines.count; i++) {
-                const spineName = this.generateSwitchName(spineModel, i);
+                const spineName = this.getSwitchNameFromProfile(spineModel, i + 1);
                 usedPorts[spineName] = [];
                 const spineObj = this.generateSwitch(spineName, spineModel, 'spine', {
-                    portBreakouts: config.configs.spines[i].portBreakouts,
+                    portBreakouts: portAssignments.configs.spines[i].portBreakouts || {},
                     serial: formData.switchSerials[spineName]
                 });
                 spines.push(spineObj);
@@ -233,11 +68,11 @@ class ConfigGenerator {
 
             // Generate leaf switch objects
             const leaves = [];
-            for (let i = 0; i < formData.leafCount; i++) {
-                const leafName = this.generateSwitchName(leafModel, i);
+            for (let i = 0; i < formData.topology.leaves.count; i++) {
+                const leafName = this.getSwitchNameFromProfile(leafModel, i + 1);
                 usedPorts[leafName] = [];
                 const leafObj = this.generateSwitch(leafName, leafModel, 'leaf', {
-                    portBreakouts: config.configs.leaves[i].portBreakouts,
+                    portBreakouts: portAssignments.configs.leaves[i].portBreakouts || {},
                     serial: formData.switchSerials[leafName]
                 });
                 leaves.push(leafObj);
@@ -245,73 +80,15 @@ class ConfigGenerator {
             }
 
             // Generate fabric connections
-            const fabricConnections = this.generateFabricConnections(spines, leaves, config);
+            const fabricConnections = this.generateFabricConnections(formData, spines, leaves, portAssignments);
             k8sObjects.push(...fabricConnections);
 
-            // Initialize port analyzers for each switch type
-            const spineProfile = await this.switchProfileManager.getSwitchProfile(spineModel);
-            const leafProfile = await this.switchProfileManager.getSwitchProfile(leafModel);
-            const portAnalyzer = new PortProfileAnalyzer(leafProfile);
+            // Generate server objects and connections
+            const serverObjects = this.generateServerObjects(formData);
+            k8sObjects.push(...serverObjects);
 
-            // Initialize connection distributor
-            const distributor = new ConnectionDistributor(leaves.length);
-
-            // Generate server objects with port allocation
-            const serverDistribution = this.distributeServersAcrossLeaves(
-                parseInt(formData.serverCount),
-                parseInt(formData.leafCount)
-            );
-
-            let currentLeafIndex = 0;
-            Object.entries(serverDistribution).forEach(([_, servers]) => {
-                servers.forEach(serverName => {
-                    // Get leaf switches for this server's connections
-                    const targetLeaves = distributor.getLeafSwitchesForServer(
-                        formData.serverConfig.serverConfigType,
-                        formData.serverConfig.connectionsPerServer,
-                        currentLeafIndex
-                    );
-
-                    const serverPorts = [];
-                    targetLeaves.forEach(leafName => {
-                        const port = portAnalyzer.getNextAvailablePort(
-                            usedPorts[leafName],
-                            formData.serverConfig.breakoutType
-                        );
-                        usedPorts[leafName].push(port);
-                        
-                        const portName = portAnalyzer.getPortName(
-                            port,
-                            formData.serverConfig.breakoutType,
-                            serverPorts.length
-                        );
-                        serverPorts.push(portName);
-                    });
-
-                    k8sObjects.push({
-                        apiVersion: 'wiring.githedgehog.com/v1beta1',
-                        kind: 'Server',
-                        metadata: {
-                            name: serverName
-                        },
-                        spec: {
-                            description: `${formData.serverConfig.serverConfigType} server with ${serverPorts.length} connections`,
-                            ports: serverPorts.map((_, i) => this.generateServerPortName(i))
-                        }
-                    });
-
-                    // Generate connections for this server
-                    const connectionGenerator = new ServerConnectionGenerator(
-                        serverName,
-                        formData.serverConfig.serverConfigType,
-                        serverPorts
-                    );
-
-                    const connections = connectionGenerator.generateConnections(targetLeaves);
-                    k8sObjects.push(...connections);
-                });
-                currentLeafIndex = (currentLeafIndex + 1) % parseInt(formData.leafCount);
-            });
+            const serverConnections = this.generateServerConnections(formData, leaves);
+            k8sObjects.push(...serverConnections);
 
             return k8sObjects;
         } catch (error) {
@@ -319,6 +96,260 @@ class ConfigGenerator {
             throw error;
         }
     }
+
+    generateVLANNamespace(ranges) {
+        return this.createK8sObject('VLANNamespace', 'default', {
+            ranges: ranges.map(range => ({
+                from: range.from,
+                to: range.to
+            }))
+        });
+    }
+
+    generateIPv4Namespace(name, subnets) {
+        return this.createK8sObject('IPv4Namespace', name, {
+            subnets: subnets.map(subnet => subnet)
+        });
+    }
+
+    generateSwitch(name, model, role, config) {
+        return this.createK8sObject('Switch', name, {
+            profile: model,
+            role: role,
+            description: name,
+            boot: {
+                serial: config.serial
+            },
+            portBreakouts: config.portBreakouts || {}
+        });
+    }
+
+    // Helper function to generate switch names from switch profiles
+    getSwitchNameFromProfile(profile, index) {
+        // Extract model number for different switch types
+        if (profile.startsWith('dell-s')) {
+            // For Dell switches: dell-s5232f-on -> s5232-XX
+            const modelNum = profile.match(/dell-s(\d+)f-on/)[1];
+            return `s${modelNum}-${String(index).padStart(2, '0')}`;
+        } else if (profile.startsWith('celestica-ds')) {
+            // For Celestica switches: celestica-ds3000 -> ds3000-XX
+            const modelNum = profile.match(/celestica-ds(\d+)/)[1];
+            return `ds${modelNum}-${String(index).padStart(2, '0')}`;
+        }
+        // Fallback case - should not happen with valid profiles
+        throw new Error(`Unsupported switch profile format: ${profile}`);
+    }
+
+    generateFabricConnections(formData, spines, leaves, portAssignments) {
+        const connections = [];
+        const uplinksPerLeaf = formData.topology.leaves.fabricPortsPerLeaf;
+        const numSpines = spines.length;
+
+        // For each leaf switch
+        leaves.forEach((leaf, leafIndex) => {
+            // Calculate how many uplinks should go to each spine
+            const uplinksPerSpine = Math.floor(uplinksPerLeaf / numSpines);
+            if (uplinksPerSpine === 0) {
+                throw new Error(`Cannot evenly distribute ${uplinksPerLeaf} uplinks across ${numSpines} spines. Each leaf needs at least ${numSpines} uplinks.`);
+            }
+
+            // Get proper switch names based on profile
+            const leafName = this.getSwitchNameFromProfile(leaf.spec.profile, leafIndex + 1);
+
+            // For each spine switch
+            spines.forEach((spine, spineIndex) => {
+                const links = [];
+                const spineName = this.getSwitchNameFromProfile(spine.spec.profile, spineIndex + 1);
+                
+                // Generate the links for this spine-leaf pair
+                for (let i = 0; i < uplinksPerSpine; i++) {
+                    // Calculate spine port number - each leaf gets a dedicated range on the spine
+                    const spinePortNum = leafIndex * uplinksPerSpine + i + 1;
+                    
+                    // Calculate leaf port number - use fabric ports (49,51,53,55)
+                    // Each spine gets its own set of ports
+                    const leafBasePort = 49 + (spineIndex * 4); // 4 ports reserved per spine
+                    const leafPortNum = leafBasePort + (i * 2); // Skip every other port
+                    
+                    links.push({
+                        spine: {
+                            port: `${spineName}/E1/${spinePortNum}`
+                        },
+                        leaf: {
+                            port: `${leafName}/E1/${leafPortNum}`
+                        }
+                    });
+                }
+
+                if (links.length > 0) {
+                    connections.push(
+                        this.createK8sObject('Connection', 
+                            `${spineName}--fabric--${leafName}`,
+                            { fabric: { links } }
+                        )
+                    );
+                }
+            });
+        });
+
+        return connections;
+    }
+
+    generateServerObjects(formData) {
+        const servers = [];
+        const serverCount = parseInt(formData.serverCount);
+        const serverType = formData.serverConfig.serverConfigType;
+        
+        for (let i = 0; i < serverCount; i++) {
+            const serverName = `server-${i + 1}`;
+            const leafIndex = Math.floor(i / Math.ceil(serverCount / formData.topology.leaves.count));
+            const leafName = `leaf-${leafIndex + 1}`;
+            const portBase = (i % Math.ceil(serverCount / formData.topology.leaves.count)) + 1;
+
+            // Generate description based on server type
+            let description;
+            switch (serverType) {
+                case 'unbundled-SH':
+                    description = `SH ${leafName}/E${portBase}`;
+                    break;
+                case 'bundled-LAG-SH':
+                    description = `SH LAG ${leafName}/E${portBase}-${portBase + 1}`;
+                    break;
+                case 'bundled-mclag':
+                    const nextLeafName = `leaf-${(leafIndex + 1) % formData.topology.leaves.count + 1}`;
+                    description = `MCLAG ${leafName}/E${portBase} ${nextLeafName}/E${portBase}`;
+                    break;
+                case 'bundled-eslag':
+                    const eslagLeafName = `leaf-${(leafIndex + 1) % formData.topology.leaves.count + 1}`;
+                    description = `ESLAG ${leafName}/E${portBase} ${eslagLeafName}/E${portBase}`;
+                    break;
+                default:
+                    description = `Unknown configuration type`;
+            }
+
+            servers.push(this.createK8sObject('Server', serverName, {
+                description
+            }));
+        }
+
+        return servers;
+    }
+
+    generateServerConnections(formData, leaves) {
+        const connections = [];
+        const serverCount = formData.serverConfig.totalServerPorts;
+        const serversPerLeaf = Math.ceil(serverCount / leaves.length);
+        const serverType = formData.serverConfig.serverConfigType;
+        const connectionsPerServer = formData.serverConfig.connectionsPerServer;
+
+        // For each server
+        for (let i = 0; i < serverCount; i++) {
+            const serverName = `server-${i + 1}`;
+            const leafIndex = Math.floor(i / serversPerLeaf);
+            const leaf = leaves[leafIndex];
+            const portBase = (i % serversPerLeaf) + 1;
+
+            if (leaf) {
+                const baseSwitchPort = `${leaf.metadata.name}/E${portBase}`;
+
+                switch (serverType) {
+                    case 'unbundled-SH':
+                        connections.push(this.createK8sObject('Connection', 
+                            `${serverName}--unbundled--${leaf.metadata.name}`, {
+                            endpoints: [
+                                {
+                                    switch: leaf.metadata.name,
+                                    port: baseSwitchPort
+                                }
+                            ],
+                            type: 'server'
+                        }));
+                        break;
+
+                    case 'bundled-LAG-SH':
+                        connections.push(this.createK8sObject('Connection',
+                            `${serverName}--bundled--${leaf.metadata.name}`, {
+                            endpoints: [
+                                {
+                                    switch: leaf.metadata.name,
+                                    port: baseSwitchPort
+                                },
+                                {
+                                    switch: leaf.metadata.name,
+                                    port: `${leaf.metadata.name}/E${portBase + 1}`
+                                }
+                            ],
+                            type: 'server'
+                        }));
+                        break;
+
+                    case 'bundled-mclag':
+                        const nextLeafIndex = (leafIndex + 1) % leaves.length;
+                        const nextLeaf = leaves[nextLeafIndex];
+                        connections.push(this.createK8sObject('Connection',
+                            `${serverName}--mclag--${leaf.metadata.name}--${nextLeaf.metadata.name}`, {
+                            endpoints: [
+                                {
+                                    switch: leaf.metadata.name,
+                                    port: baseSwitchPort
+                                },
+                                {
+                                    switch: nextLeaf.metadata.name,
+                                    port: `${nextLeaf.metadata.name}/E${portBase}`
+                                }
+                            ],
+                            type: 'server'
+                        }));
+                        break;
+
+                    case 'bundled-eslag':
+                        const eslagLeafIndex = (leafIndex + 1) % leaves.length;
+                        const eslagLeaf = leaves[eslagLeafIndex];
+                        connections.push(this.createK8sObject('Connection',
+                            `${serverName}--eslag--${leaf.metadata.name}--${eslagLeaf.metadata.name}`, {
+                            endpoints: [
+                                {
+                                    switch: leaf.metadata.name,
+                                    port: baseSwitchPort
+                                },
+                                {
+                                    switch: eslagLeaf.metadata.name,
+                                    port: `${eslagLeaf.metadata.name}/E${portBase}`
+                                }
+                            ],
+                            type: 'server'
+                        }));
+                        break;
+                }
+            }
+        }
+
+        return connections;
+    }
+
+    generateServerPortName(index) {
+        return `enp${Math.floor(index/2)}s${(index % 2) + 1}`;
+    }
+
+    createK8sObject(kind, name, spec, apiVersion = 'wiring.githedgehog.com/v1beta1') {
+        return {
+            apiVersion,
+            kind,
+            metadata: {
+                name
+            },
+            spec
+        };
+    }
 }
 
-export { ConfigGenerator };
+// Export standalone utility functions
+export function generateSwitchName(role, index) {
+    return `${role}-${index + 1}`;
+}
+
+// Main config generation function that uses ConfigGenerator class
+export function generateConfig(formData, switchProfileManager, portRules) {
+    const generator = new ConfigGenerator(switchProfileManager, portRules);
+    return generator.generateConfig(formData);
+}

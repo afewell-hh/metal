@@ -29,8 +29,10 @@ export class SwitchProfileManager {
         if (this._initialized) return;
 
         try {
-            // Load port rules, which now contain all the necessary information
-            await this.loadPortRules();
+            // Load switch profiles
+            for (const profile of this.baseProfiles) {
+                await this.loadSwitchProfile(profile);
+            }
             
             this._initialized = true;
         } catch (error) {
@@ -39,40 +41,75 @@ export class SwitchProfileManager {
         }
     }
 
-    // Load all port allocation rules
-    async loadPortRules() {
-        for (const model of this.baseProfiles) {
-            try {
-                const response = await fetch(`/port_allocation_rules/${model}.yaml`);
-                if (!response.ok) {
-                    console.error(`Failed to load PAR for ${model}: ${response.status}`);
-                    continue;
-                }
-                const text = await response.text();
-                const rules = jsyaml.load(text);
-
-                // Convert the YAML format to our internal format
-                const profile = {
-                    metadata: {
-                        name: model,
-                        displayName: model.replace(/_/g, ' ').toUpperCase()
-                    },
-                    portRules: {
-                        fabric: { validPorts: this.expandPortRanges(rules.fabric || []) },
-                        server: { validPorts: this.expandPortRanges(rules.server || []) },
-                        management: { validPorts: this.expandPortRanges(rules.management || []) }
-                    }
-                };
-
-                this.profiles.set(model, profile);
-                this.portRules.set(model, rules);
-            } catch (error) {
-                console.error(`Failed to load PAR for ${model}:`, error);
+    async loadSwitchProfile(profile) {
+        try {
+            const response = await fetch(`/port_allocation_rules/${profile}.yaml`);
+            if (!response.ok) {
+                throw new Error(`Failed to load profile ${profile}: ${response.statusText}`);
             }
+            const text = await response.text();
+            const data = jsyaml.load(text);
+            this.profiles.set(profile, data);
+            return data;
+        } catch (error) {
+            console.error(`Error loading switch profile ${profile}:`, error);
+            throw error;
         }
     }
 
-    // Helper to expand port ranges like ["1-4", "6", "8-10"] to ["1","2","3","4","6","8","9","10"]
+    async getSwitchProfile(model) {
+        if (!this._initialized) {
+            await this.initialize();
+        }
+
+        // Convert model name from dell-s5248f-on to dell_s5248f_on format
+        const normalizedModel = model.toLowerCase().replace(/-/g, '_');
+        
+        // Try to get from cache first
+        let profile = this.profiles.get(normalizedModel);
+        if (!profile) {
+            // If not in cache, try to load it
+            try {
+                profile = await this.loadSwitchProfile(normalizedModel);
+            } catch (error) {
+                throw new Error(`Failed to get switch profile for ${model}: ${error.message}`);
+            }
+        }
+        return profile;
+    }
+
+    getValidPorts(model, role) {
+        const profile = this.profiles.get(model.toLowerCase().replace(/-/g, '_'));
+        if (!profile) {
+            throw new Error(`Profile not found for model ${model}`);
+        }
+
+        const ports = [];
+        Object.entries(profile.Ports || {}).forEach(([portName, portConfig]) => {
+            if (portConfig.Role === role) {
+                ports.push(portName);
+            }
+        });
+
+        return ports;
+    }
+
+    getEffectiveProfile(model) {
+        if (!this.profiles.has(model)) {
+            throw new Error(`Profile not found for model: ${model}`);
+        }
+        return this.profiles.get(model);
+    }
+
+    getSupportedModels() {
+        return Array.from(this.profiles.keys());
+    }
+
+    isValidPort(model, role, port) {
+        const validPorts = this.getValidPorts(model, role);
+        return validPorts.includes(port);
+    }
+
     expandPortRanges(ranges) {
         const ports = new Set();
         ranges.forEach(range => {
@@ -86,42 +123,5 @@ export class SwitchProfileManager {
             }
         });
         return Array.from(ports).sort((a, b) => parseInt(a) - parseInt(b));
-    }
-
-    // Get valid ports for a given role
-    getValidPorts(model, role) {
-        if (!this._initialized) {
-            throw new Error('SwitchProfileManager not initialized');
-        }
-
-        const profile = this.profiles.get(model);
-        if (!profile) {
-            throw new Error(`Profile not found for model: ${model}`);
-        }
-
-        if (!profile.portRules || !profile.portRules[role]) {
-            throw new Error(`No port rules found for ${role} ports in model ${model}`);
-        }
-
-        return profile.portRules[role].validPorts || [];
-    }
-
-    // Get the effective profile for a switch model
-    getEffectiveProfile(model) {
-        if (!this.profiles.has(model)) {
-            throw new Error(`Profile not found for model: ${model}`);
-        }
-        return this.profiles.get(model);
-    }
-
-    // Get all supported switch models
-    getSupportedModels() {
-        return Array.from(this.profiles.keys());
-    }
-
-    // Validate if a port can be used for a specific role
-    isValidPort(model, role, port) {
-        const validPorts = this.getValidPorts(model, role);
-        return validPorts.includes(port);
     }
 }

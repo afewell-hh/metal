@@ -2,8 +2,7 @@
  * Manages port assignment and validation logic for fabric designs
  */
 export class PortAssignmentManager {
-    constructor(switchProfileManager, portRules) {
-        this.switchProfileManager = switchProfileManager;
+    constructor(portRules) {
         this.portRules = portRules;
     }
 
@@ -17,7 +16,6 @@ export class PortAssignmentManager {
             leafSwitches,
             spineSwitches,
             uplinksPerLeaf,
-            totalServerPorts,
             leafModel,
             spineModel
         } = config;
@@ -38,147 +36,10 @@ export class PortAssignmentManager {
             errors.push(`Uplinks per leaf (${uplinksPerLeaf}) must be >= number of spine switches (${spineSwitches})`);
         }
 
-        try {
-            // 3. Port capacity validation for leaves
-            const leafFabricPorts = this.switchProfileManager.getValidPorts(leafModel, 'fabric');
-            const leafServerPorts = this.switchProfileManager.getValidPorts(leafModel, 'server');
-
-            if (!leafFabricPorts || leafFabricPorts.length === 0) {
-                errors.push(`No valid fabric ports found for leaf model ${leafModel}`);
-            }
-            if (!leafServerPorts || leafServerPorts.length === 0) {
-                errors.push(`No valid server ports found for leaf model ${leafModel}`);
-            }
-
-            // Calculate ports needed per leaf
-            const serverPortsPerLeaf = Math.ceil(totalServerPorts / leafSwitches);
-
-            if (uplinksPerLeaf > leafFabricPorts.length) {
-                errors.push(`Too many uplinks requested (${uplinksPerLeaf}) for leaf model ${leafModel}. Maximum available: ${leafFabricPorts.length}`);
-            }
-
-            if (serverPortsPerLeaf > leafServerPorts.length) {
-                errors.push(`Too many server ports requested per leaf (${serverPortsPerLeaf}) for leaf model ${leafModel}. Maximum available: ${leafServerPorts.length}`);
-            }
-
-            // 4. Port capacity validation for spines
-            const spineFabricPorts = this.switchProfileManager.getValidPorts(spineModel, 'fabric');
-            
-            if (!spineFabricPorts || spineFabricPorts.length === 0) {
-                errors.push(`No valid fabric ports found for spine model ${spineModel}`);
-            }
-
-            // Calculate ports needed per spine
-            const portsPerSpine = Math.ceil((leafSwitches * uplinksPerLeaf) / spineSwitches);
-            
-            if (portsPerSpine > spineFabricPorts.length) {
-                errors.push(`Too many ports required per spine (${portsPerSpine}) for model ${spineModel}. Maximum available: ${spineFabricPorts.length}`);
-            }
-
-        } catch (error) {
-            errors.push(`Error validating port configuration: ${error.message}`);
-        }
-
         return {
             isValid: errors.length === 0,
             errors
         };
-    }
-
-    /**
-     * Calculates port assignments for a validated fabric design
-     * @param {Object} config - The fabric design configuration
-     * @returns {Object} Port assignments for each switch
-     */
-    generatePortAssignments(config) {
-        const validation = this.validateFabricDesign(config);
-        if (!validation.isValid) {
-            throw new Error(`Invalid fabric design: ${validation.errors.join(', ')}`);
-        }
-
-        const {
-            leafSwitches,
-            spineSwitches,
-            uplinksPerLeaf,
-            totalServerPorts,
-            leafModel,
-            spineModel
-        } = config;
-
-        const assignments = {
-            leaves: [],
-            spines: []
-        };
-
-        // Get valid ports for leaf switches
-        const leafFabricPorts = this.switchProfileManager.getValidPorts(leafModel, 'fabric');
-        const leafServerPorts = this.switchProfileManager.getValidPorts(leafModel, 'server');
-
-        // Calculate server ports per leaf
-        const serverPortsPerLeaf = Math.ceil(totalServerPorts / leafSwitches);
-
-        // Generate assignments for each leaf switch
-        for (let leafIdx = 0; leafIdx < leafSwitches; leafIdx++) {
-            const leafAssignment = {
-                switchId: `leaf${leafIdx + 1}`,
-                model: leafModel,
-                ports: {
-                    fabric: [],
-                    server: []
-                }
-            };
-
-            // Assign fabric ports
-            const fabricPortStart = parseInt(leafFabricPorts[0]);
-            for (let i = 0; i < uplinksPerLeaf; i++) {
-                const portId = (fabricPortStart + i).toString();
-                leafAssignment.ports.fabric.push({
-                    id: portId,
-                    speed: '100G'
-                });
-            }
-
-            // Assign server ports
-            const serverPortStart = parseInt(leafServerPorts[0]);
-            for (let i = 0; i < serverPortsPerLeaf; i++) {
-                const portId = (serverPortStart + i).toString();
-                leafAssignment.ports.server.push({
-                    id: portId,
-                    speed: '25G'
-                });
-            }
-
-            assignments.leaves.push(leafAssignment);
-        }
-
-        // Get valid ports for spine switches
-        const spineFabricPorts = this.switchProfileManager.getValidPorts(spineModel, 'fabric');
-        const downlinksPerSpine = Math.ceil(leafSwitches * (uplinksPerLeaf / spineSwitches));
-
-        // Generate assignments for each spine switch
-        for (let spineIdx = 0; spineIdx < spineSwitches; spineIdx++) {
-            const spineAssignment = {
-                switchId: `spine${spineIdx + 1}`,
-                model: spineModel,
-                ports: {
-                    fabric: []
-                }
-            };
-
-            // Assign fabric ports
-            const fabricPortStart = parseInt(spineFabricPorts[0]);
-            for (let i = 0; i < downlinksPerSpine; i++) {
-                const portId = (fabricPortStart + i).toString();
-                spineAssignment.ports.fabric.push({
-                    id: portId,
-                    speed: '100G'
-                });
-            }
-
-            assignments.spines.push(spineAssignment);
-        }
-
-        return assignments;
     }
 
     /**
@@ -333,50 +194,33 @@ export class PortAssignmentManager {
 
     // Generate network configuration for a switch
     generateNetworkConfig(role, index) {
-        // Generate unique ASN and IPs for each switch
-        // Using private ASN range 64512-65534 for private use
-        const baseAsn = role === 'spine' ? 64512 : 64768;
-        const asn = baseAsn + index;
-
-        // Using 172.16.0.0/12 for management IPs
-        const managementOctet = role === 'spine' ? 1 : 2;
-        const ip = `172.16.${managementOctet}.${index + 1}`;
-
-        // Using 172.20.0.0/12 for VTEP IPs
-        const vtepOctet = role === 'spine' ? 1 : 2;
-        const vtepIP = `172.20.${vtepOctet}.${index + 1}`;
-
-        // Using 172.24.0.0/12 for protocol IPs (BGP Router ID)
-        const protocolOctet = role === 'spine' ? 1 : 2;
-        const protocolIP = `172.24.${protocolOctet}.${index + 1}`;
-
+        const baseAsn = role === 'spine' ? 65000 : 65100;
+        const baseIP = role === 'spine' ? '10.0.0.' : '10.0.1.';
+        
         return {
-            asn,
-            ip,
-            vtepIP,
-            protocolIP
+            role,
+            asn: baseAsn + index,
+            ip: baseIP + (index + 1),
+            vtepIP: role === 'leaf' ? `10.0.2.${index + 1}` : undefined,
+            protocolIP: `10.0.3.${index + 1}`
         };
     }
 
     async validateAndAssignPorts(formData) {
-        // Extract and normalize values from form data
-        const numLeafSwitches = parseInt(formData.leafCount, 10);
-        const numSpineSwitches = parseInt(formData.topology.spines.count, 10);
-        const uplinksPerLeaf = parseInt(formData.topology.leaves.fabricPortsPerLeaf, 10);
-        const totalServerPorts = parseInt(formData.serverCount, 10);
-
-        // Normalize model names
-        const normalizedLeafModel = formData.topology.leaves.model.toLowerCase().replace(/-/g, '_');
-        const normalizedSpineModel = formData.topology.spines.model.toLowerCase().replace(/-/g, '_');
+        // Extract topology information
+        const numSpineSwitches = formData.topology.spines.count;
+        const numLeafSwitches = formData.topology.leaves.count;
+        const uplinksPerLeaf = formData.topology.leaves.fabricPortConfig?.breakout || 1;
+        const spineModel = formData.topology.spines.model;
+        const leafModel = formData.topology.leaves.model;
 
         // Validate the fabric design
-        const validation = await this.validateFabricDesign({
+        const validation = this.validateFabricDesign({
             leafSwitches: numLeafSwitches,
             spineSwitches: numSpineSwitches,
             uplinksPerLeaf,
-            totalServerPorts,
-            leafModel: normalizedLeafModel,
-            spineModel: normalizedSpineModel
+            leafModel,
+            spineModel
         });
 
         if (!validation.isValid) {
@@ -392,27 +236,24 @@ export class PortAssignmentManager {
         // Configure spine switches
         for (let i = 0; i < numSpineSwitches; i++) {
             const networkConfig = this.generateNetworkConfig('spine', i);
+            const fabricPorts = [];
+            
+            // Calculate fabric ports needed for this spine
+            for (let j = 0; j < numLeafSwitches; j++) {
+                for (let k = 0; k < uplinksPerLeaf; k++) {
+                    if (k % numSpineSwitches === i) {
+                        fabricPorts.push({
+                            id: `${j * uplinksPerLeaf + k + 1}`
+                        });
+                    }
+                }
+            }
+
             configs.spines.push({
                 ...networkConfig,
                 portBreakouts: {},  // No breakouts by default for spine switches
                 ports: {
-                    fabric: Array(uplinksPerLeaf * numLeafSwitches).fill(null).map((_, j) => {
-                        // Calculate port number based on leaf index and uplink number
-                        const leafIndex = Math.floor(j / uplinksPerLeaf);
-                        const uplinkIndex = j % uplinksPerLeaf;
-                        
-                        // Calculate which spine this uplink should connect to
-                        // For even distribution, we use modulo to rotate through spines
-                        if (uplinkIndex % numSpineSwitches !== i) {
-                            return null; // Skip this port, it belongs to another spine
-                        }
-                        
-                        // Calculate port number for this spine
-                        const portNumber = leafIndex * uplinksPerLeaf + uplinkIndex + 1;
-                        return {
-                            id: `${portNumber}`
-                        };
-                    }).filter(Boolean)  // Remove null entries
+                    fabric: fabricPorts
                 }
             });
         }
@@ -420,25 +261,31 @@ export class PortAssignmentManager {
         // Configure leaf switches
         for (let i = 0; i < numLeafSwitches; i++) {
             const networkConfig = this.generateNetworkConfig('leaf', i);
+            const fabricPorts = [];
+            
+            // Calculate fabric ports for this leaf
+            for (let j = 0; j < uplinksPerLeaf; j++) {
+                const spineIndex = j % numSpineSwitches;
+                fabricPorts.push({
+                    id: `${i + 1}`,
+                    spine: spineIndex
+                });
+            }
+
             configs.leaves.push({
                 ...networkConfig,
-                portBreakouts: {},  // Add breakouts if needed
+                portBreakouts: formData.topology.leaves.fabricPortConfig?.breakout ? {
+                    mode: formData.topology.leaves.fabricPortConfig.breakout
+                } : {},
                 ports: {
-                    fabric: Array(uplinksPerLeaf).fill(null).map((_, j) => {
-                        // Calculate which spine this uplink should connect to
-                        const spineIndex = j % numSpineSwitches;
-                        return {
-                            // Use 49, 51, 53, 55 for fabric ports
-                            id: `${49 + j * 2}`
-                        };
-                    }),
-                    server: Array(totalServerPorts).fill(null).map((_, j) => ({
-                        id: `${j + 1}`
-                    }))
+                    fabric: fabricPorts
                 }
             });
         }
 
-        return { configs };
+        return {
+            isValid: true,
+            configs
+        };
     }
 }

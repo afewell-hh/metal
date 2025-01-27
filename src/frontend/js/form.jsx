@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { generateConfig, generateSwitchName } from './configGenerator';
+import { generateConfig, generateSwitchName, ConfigGenerator } from './configGenerator.js';
 import { SwitchProfileManager } from './switchProfileManager';
 import ConfigEditor from './configEditor';
 import jsyaml from 'js-yaml';
@@ -46,18 +46,15 @@ const DEFAULT_FORM_DATA = {
       fabricPortsPerLeaf: 2,
       fabricPortConfig: {
         breakout: null
-      },
-      serverPortConfig: {
-        breakout: null
-      },
-      totalServerPorts: 16
+      }
     }
   },
   switchSerials: {},
   serverConfig: {
     serverConfigType: 'unbundled-SH',
     connectionsPerServer: 1,
-    breakoutType: 'Fixed'
+    breakoutType: 'Fixed',
+    totalServerPorts: 16
   }
 };
 
@@ -74,19 +71,7 @@ export function ConfigForm() {
   const [isBreakoutDisabled, setIsBreakoutDisabled] = useState(true);
 
   useEffect(() => {
-    async function initializeRules() {
-      try {
-        await portRules.initialize();
-      } catch (error) {
-        console.error('Failed to initialize port rules:', error);
-        setError('Failed to initialize port rules. Please check console for details.');
-      }
-    }
-    initializeRules();
-  }, []);
-
-  useEffect(() => {
-    async function initializeProfiles() {
+    const initializeProfiles = async () => {
       try {
         await switchProfileManager.initialize();
         setSupportedSwitches(switchProfileManager.baseProfiles.map(model => model.replace(/_/g, '-')));
@@ -96,8 +81,20 @@ export function ConfigForm() {
         setError('Failed to initialize switch profiles. Please check console for details.');
         setIsLoading(false);
       }
-    }
+    };
     initializeProfiles();
+  }, []);
+
+  useEffect(() => {
+    async function initializeRules() {
+      try {
+        await portRules.initialize();
+      } catch (error) {
+        console.error('Failed to initialize port rules:', error);
+        setError('Failed to initialize port rules. Please check console for details.');
+      }
+    }
+    initializeRules();
   }, []);
 
   useEffect(() => {
@@ -129,9 +126,13 @@ export function ConfigForm() {
   useEffect(() => {
     const profile = formData.topology?.leaves?.model;
     if (profile) {
-      fetch(`/api/switch_profiles/${profile}`)
-        .then(response => response.json())
-        .then(profileData => {
+      // Replace profile name format from dell-s5248f-on to dell_s5248f_on
+      const yamlProfile = profile.replace(/-/g, '_');
+      
+      fetch(`/port_allocation_rules/${yamlProfile}.yaml`)
+        .then(response => response.text())
+        .then(text => {
+          const profileData = jsyaml.load(text);
           const ports = Object.entries(profileData.Ports || {});
           const serverPort = ports.find(([_, port]) => port.Profile)?.[1];
 
@@ -204,7 +205,12 @@ export function ConfigForm() {
 
     if (!showConfigEditor) {
       try {
-        const config = await generateConfig(formData);
+        // Make sure switch profile manager is initialized
+        if (!switchProfileManager.initialized) {
+          throw new Error('Switch profiles not initialized yet. Please try again.');
+        }
+        
+        const config = await generateConfig(formData, switchProfileManager, portRules);
         setGeneratedConfig(config);
         setShowConfigEditor(true);
       } catch (error) {
@@ -481,47 +487,6 @@ export function ConfigForm() {
               <option value="1x100G">1x100G</option>
             </select>
           </div>
-          <div>
-            <label>Total Server Ports Needed:</label>
-            <input
-              type="number"
-              min="1"
-              value={formData.topology.leaves.totalServerPorts}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                topology: {
-                  ...prev.topology,
-                  leaves: {
-                    ...prev.topology.leaves,
-                    totalServerPorts: parseInt(e.target.value)
-                  }
-                }
-              }))}
-            />
-          </div>
-          <div>
-            <label>Server Port Breakout:</label>
-            <select
-              value={formData.topology.leaves.serverPortConfig.breakout || ''}
-              onChange={(e) => setFormData(prev => ({
-                ...prev,
-                topology: {
-                  ...prev.topology,
-                  leaves: {
-                    ...prev.topology.leaves,
-                    serverPortConfig: {
-                      breakout: e.target.value || null
-                    }
-                  }
-                }
-              }))}
-            >
-              <option value="">Select Breakout</option>
-              <option value="fixed">Fixed (No Breakout)</option>
-              <option value="4x10G">4x10G</option>
-              <option value="4x25G">4x25G</option>
-            </select>
-          </div>
         </div>
 
         {/* Server Configuration */}
@@ -564,6 +529,21 @@ export function ConfigForm() {
                 </option>
               ))}
             </select>
+          </div>
+          <div>
+            <label>Total Server Ports:</label>
+            <input
+              type="number"
+              min="1"
+              value={formData.serverConfig.totalServerPorts}
+              onChange={(e) => setFormData(prev => ({
+                ...prev,
+                serverConfig: {
+                  ...prev.serverConfig,
+                  totalServerPorts: parseInt(e.target.value)
+                }
+              }))}
+            />
           </div>
           <div>
             <label>Port Breakout Type:</label>

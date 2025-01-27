@@ -82,9 +82,14 @@ class ConfigApp {
             leafCount: parseInt(document.getElementById('leafCount').value),
             spineCount: parseInt(document.getElementById('spineCount').value),
             uplinksPerLeaf: parseInt(document.getElementById('uplinksPerLeaf').value),
-            totalServerPorts: document.getElementById('totalServerPorts').value
+            serverConfig: {
+              serverConfigType: document.getElementById('serverConfigType').value,
+              connectionsPerServer: parseInt(document.getElementById('connectionsPerServer').value),
+              breakoutType: document.getElementById('breakoutType').value,
+              totalServerPorts: document.getElementById('totalServerPorts').value
                 ? parseInt(document.getElementById('totalServerPorts').value)
-                : undefined
+                : 16
+            }
         };
 
         console.log('Form data:', formData);

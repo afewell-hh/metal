@@ -29,12 +29,11 @@ const objectTemplates = {
     kind: 'Switch',
     metadata: { name: '' },
     spec: {
-      boot: { mac: '' },
+      boot: { serial: '' },
       profile: '',
       role: '',
       description: '',
-      portBreakouts: {},
-      serial: ''
+      portBreakouts: {}
     }
   },
   Connection: {
@@ -42,12 +41,19 @@ const objectTemplates = {
     kind: 'Connection',
     metadata: { name: '' },
     spec: {
-      fabric: {
-        links: [{
-          spine: { port: '' },
-          leaf: { port: '' }
-        }]
-      }
+      endpoints: [{
+        switch: '',
+        port: ''
+      }],
+      type: 'fabric'
+    }
+  },
+  Server: {
+    apiVersion: 'wiring.githedgehog.com/v1beta1',
+    kind: 'Server',
+    metadata: { name: '' },
+    spec: {
+      description: ''
     }
   }
 };

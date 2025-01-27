@@ -10,6 +10,7 @@ export default defineConfig({
         outDir: '../../dist',
         emptyOutDir: true,
     },
-    publicDir: '../../',
+    // Serve static files from the frontend directory
+    publicDir: 'public',
     base: '/',
 });
