@@ -357,6 +357,35 @@ portRanges:
 3. Apply breakout configuration
 4. Generate port names
 
+## Configuration Objects
+
+### Switch Objects
+- Naming convention:
+  * Generated from switch profile using `generateSwitchName` function
+  * Dell: `s{model}-{index}` (e.g., s5232-01)
+  * Celestica: `ds{model}-{index}` (e.g., ds3000-01)
+- Required fields:
+  * `metadata.name`: Generated switch name
+  * `spec.profile`: Switch model (e.g., dell-s5232f-on)
+  * `spec.role`: spine or leaf
+  * `spec.description`: Same as metadata.name
+  * `spec.boot`: Object containing optional serial number
+  * `spec.portBreakouts`: Empty object for future breakout config
+- Example:
+  ```yaml
+  apiVersion: wiring.githedgehog.com/v1beta1
+  kind: Switch
+  metadata:
+    name: s5232-01
+  spec:
+    profile: dell-s5232f-on
+    role: spine
+    description: s5232-01
+    boot:
+      serial: TH0HM2C2CET0008700K1  # Optional
+    portBreakouts: {}
+  ```
+
 ## State Management
 
 ### Form State

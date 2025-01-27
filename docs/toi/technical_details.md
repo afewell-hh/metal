@@ -35,6 +35,56 @@
    - Model changes trigger serial number regeneration
    - Models must be normalized for comparison
 
+## Switch Naming and Generation
+
+### Switch Name Generation
+- Standalone utility function `generateSwitchName(profile, index)`
+- Naming rules by vendor:
+  1. Dell switches:
+     ```javascript
+     dell-s5232f-on -> s5232-XX  // XX is zero-padded index
+     dell-s5248f-on -> s5248-XX
+     // Example: dell-s5232f-on with index 1 -> s5232-01
+     ```
+  2. Celestica switches:
+     ```javascript
+     celestica-ds3000 -> ds3000-XX
+     celestica-ds4000 -> ds4000-XX
+     // Example: celestica-ds3000 with index 1 -> ds3000-01
+     ```
+- Implementation:
+  ```javascript
+  export function generateSwitchName(profile, index) {
+      if (profile.startsWith('dell-s')) {
+          const modelNum = profile.match(/dell-s(\d+)f-on/)[1];
+          return `s${modelNum}-${String(index).padStart(2, '0')}`;
+      } else if (profile.startsWith('celestica-ds')) {
+          const modelNum = profile.match(/celestica-ds(\d+)/)[1];
+          return `ds${modelNum}-${String(index).padStart(2, '0')}`;
+      }
+      throw new Error(`Unsupported switch profile format: ${profile}`);
+  }
+  ```
+
+### Serial Number Handling
+- Serial numbers stored in form state under `switchSerials` object
+- Keys are generated switch names (e.g., `s5232-01`)
+- Values are user-input serial numbers
+- Serial numbers are added to switch objects in `boot.serial` field:
+  ```yaml
+  apiVersion: wiring.githedgehog.com/v1beta1
+  kind: Switch
+  metadata:
+    name: s5232-01
+  spec:
+    profile: dell-s5232f-on
+    role: spine
+    description: s5232-01
+    boot:
+      serial: TH0HM2C2CET0008700K1  # User-provided serial
+    portBreakouts: {}  # Always empty until breakout logic is implemented
+  ```
+
 ## Configuration Generation
 
 ### K8s Object Generation

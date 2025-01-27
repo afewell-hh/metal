@@ -4,11 +4,14 @@
 
 ### Configuration Generation
 - Switch serial number management in form and config
-- Proper fabric port distribution across spines
-- Dynamic switch model selection from profiles
-- Kubernetes CRD object generation with correct metadata
+  * Serial numbers stored by generated switch names (e.g., s5232-01)
+  * Added to switch objects in boot.serial field
+  * Form preserves serials during topology changes
+- Switch naming standardization
+  * Vendor-specific naming rules (e.g., dell-s5232f-on -> s5232-01)
+  * Consistent zero-padded indexing
+  * Standalone name generation function
 - Port naming and assignment with proper validation
-- Switch name generation with vendor normalization
 - Network configuration field generation
 - Server port configuration and assignment:
   * Port profile analysis for server port identification
@@ -27,7 +30,7 @@
 ### Form Components
 - Multi-step form workflow:
   1. Basic Configuration (switch counts, models, etc.)
-  2. Serial Number Input
+  2. Serial Number Input (using generated switch names)
   3. Configuration Editor
   4. Final Configuration Display
 - State preservation between steps
